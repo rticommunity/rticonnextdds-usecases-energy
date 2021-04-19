@@ -1,0 +1,167 @@
+module Energy {
+module Common {
+    typedef string<64> ID;
+
+    @nested
+    struct Timestamp {
+      uint64 Seconds;
+      uint32 Fraction;
+    };
+
+    @nested
+    struct EfficiencyPoint {
+      float Value;
+      float Efficiency;
+    };
+
+    @extensibility(APPENDABLE)
+    struct CNTL_Single_float32 {
+      @key
+      Energy::Common::ID Device;
+      Energy::Common::ID Controller;
+      float SetPoint;
+    };
+
+    @extensibility(APPENDABLE)
+    struct MMXU_Single_float32 {
+      @key
+      Energy::Common::ID Device;
+      float Value;
+    };
+
+    @extensibility(APPENDABLE)
+    @nested
+    struct INFO {
+      @key
+      Energy::Common::ID Device;
+      @key
+      Energy::Common::ID Node;
+    };
+
+    @extensibility(APPENDABLE)
+    @nested
+    struct STAT {
+      @key
+      Energy::Common::ID Device;
+    };
+
+    @nested
+    struct NodePoint {
+      Energy::Common::ID Node;
+      sequence<Energy::Common::ID, 64> ConnectedNodes;
+    };
+
+  };
+
+module Enums {
+    enum ConnectionStatus {
+      @value(0)
+      INVALID,
+      @value(1)
+      DISCONNECTED,
+      @value(2)
+      CONNECTED
+    };
+
+    enum MicrogridStatus {
+      @value(0)
+      INVALID,
+      @value(1)
+      CONNECTED,
+      @value(2)
+      REQUEST_ISLAND,
+      @value(3)
+      ISLANDED,
+      @value(4)
+      REQUEST_RESYNC
+    };
+
+    enum OperationStatus {
+      @value(0)
+      INVALID,
+      @value(1)
+      DISABLED_OFF,
+      @value(2)
+      DISABLED_ERROR,
+      @value(3)
+      DISABLED_READY,
+      @value(4)
+      ENABLED_STARTING,
+      @value(5)
+      ENABLED_ON,
+      @value(6)
+      ENABLED_VF_READY,
+      @value(7)
+      ENABLED_VF_ON
+    };
+
+    enum DeviceControl {
+      @value(0)
+      INVALID,
+      @value(1)
+      CONNECT,
+      @value(2)
+      DISCONNECT
+    };
+
+  };
+
+module Ops {
+    struct Netlist {
+      sequence<Energy::Common::NodePoint, 256> Nodes;
+    };
+
+    struct Meas_NodePower : Energy::Common::MMXU_Single_float32 {
+      @key
+      Energy::Common::ID Node;
+    };
+
+    struct Info_Resource : Energy::Common::INFO {
+      float MaxLoad;
+      float MaxGeneration;
+    };
+
+    struct Info_Battery : Energy::Ops::Info_Resource {
+      float Capacity;
+    };
+
+    struct Info_Generator : Energy::Ops::Info_Resource {
+      sequence<Energy::Common::EfficiencyPoint, 1024> PowerEfficiency;
+    };
+
+    struct Status_Device : Energy::Common::STAT {
+      Energy::Enums::ConnectionStatus ConnectionStatus;
+      Energy::Enums::OperationStatus OperationStatus;
+    };
+
+    struct Status_Battery : Energy::Ops::Status_Device {
+      float SOC;
+    };
+
+    struct Status_Microgrid : Energy::Common::STAT {
+      Energy::Enums::MicrogridStatus MicrogridStatus;
+    };
+
+    struct VF_Device {
+      Energy::Common::ID Device;
+    };
+
+    struct VF_Device_Active {
+      @key
+      Energy::Common::ID Optimizer;
+      Energy::Common::ID Device;
+      Energy::Common::Timestamp SwitchTime;
+    };
+
+    @extensibility(APPENDABLE)
+    struct Control_Device {
+      @key
+      Energy::Common::ID Device;
+      Energy::Common::ID Controller;
+      Energy::Enums::DeviceControl Command;
+    };
+
+  };
+
+};
+
