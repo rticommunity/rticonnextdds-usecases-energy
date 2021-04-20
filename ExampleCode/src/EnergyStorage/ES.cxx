@@ -33,7 +33,7 @@
 
 #include <dds/dds.hpp>
 
-#include "../../_Common/EnergyComms.hpp"
+#include "EnergyComms.hpp"
 
 float SimSOC = 50.0;
 float SimMeasurement = 0;

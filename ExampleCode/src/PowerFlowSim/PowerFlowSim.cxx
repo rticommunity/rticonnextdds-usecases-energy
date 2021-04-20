@@ -31,7 +31,7 @@ load (smart or dumb) to a microgrid.
 
 #include <dds/dds.hpp>
 
-#include "../../_Common/EnergyComms.hpp"
+#include "EnergyComms.hpp"
 
 const std::string DeviceID = "PowerFlowSim";
 const std::string OptimizerID = "SampleOpt";

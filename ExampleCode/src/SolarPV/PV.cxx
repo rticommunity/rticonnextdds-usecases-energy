@@ -32,7 +32,7 @@
 
 #include <dds/dds.hpp>
 
-#include "../../_Common/EnergyComms.hpp"
+#include "EnergyComms.hpp"
 
 float SimIrradiance = 0;
 float SimMeasurement = 0;
