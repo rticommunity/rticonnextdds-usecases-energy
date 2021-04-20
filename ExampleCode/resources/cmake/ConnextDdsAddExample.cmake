@@ -394,7 +394,7 @@ message(STATUS "Example QoS filename: ${_EXAMPLE_QOS_FILENAME}")
         set(user_qos_profile_name "USER_QOS_PROFILES.xml")
     endif()
 
-    set(qos_file "${CMAKE_CURRENT_SOURCE_DIR}/${user_qos_profile_name}")
+    set(qos_file "${CMAKE_CURRENT_SOURCE_DIR}/../${user_qos_profile_name}")
 
     if(NOT EXISTS ${qos_file})
         message(FATAL_ERROR "The ${user_qos_profile_name} was not found")
