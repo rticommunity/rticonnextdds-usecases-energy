@@ -43,12 +43,12 @@ const std::string DeviceID = "SampleGen";
 const std::string NodeID = "004";
 const float MaxLoad = 0.0;
 const float MaxGeneration = 8.0;
-const std::chrono::duration<std::chrono::seconds> RampUpTime = std::chrono::seconds(10);
+const std::chrono::duration<float> RampUpTime = std::chrono::seconds(10);
 rti::core::bounded_sequence<Energy::Common::EfficiencyPoint, 1024> EfficiencyCurve;
 Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
 Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::DISABLED_OFF;
 
-const std::chrono::duration<std::chrono::seconds> MaxTimeToWait = std::chrono::seconds(300);
+const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
 /* InitializeEfficiencyCureve
 * We are puting a simple efficiency curve into the example. This would probably have more points and could even change
@@ -204,7 +204,7 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
 
     // Check to make sure that something isn't wrong and the scheduled time to wait to transition is greater that the
     // configured max time to wait. For an actual application this would need some kind of status feedback for safety.
-    if (duration_cast<duration<seconds>>(targetTime - high_resolution_clock::now()) > MaxTimeToWait) {
+    if (duration_cast<duration<float>>(targetTime - high_resolution_clock::now()) > MaxTimeToWait) {
         std::cerr << "Time to switch to VF greater than Max Allowed Time.\n";
         return;
     }

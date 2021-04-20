@@ -48,7 +48,7 @@ const float Capacity = 8.0;
 Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
 Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::DISABLED_OFF;
 
-const std::chrono::duration<std::chrono::seconds> MaxTimeToWait = std::chrono::seconds(300);
+const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
 /* StatusMonitor
 * In this example we are watching for the internal status to change, and when it does to publish a new status.
@@ -209,7 +209,7 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
     using Clock = std::chrono::high_resolution_clock;
     using Seconds = std::chrono::seconds;
     using Nanoseconds = std::chrono::nanoseconds;
-    using Duration = std::chrono::duration<Seconds>;
+    using Duration = std::chrono::duration<float>;
 
     std::chrono::time_point<Clock> targetTime(Seconds(ts.Seconds()) + Nanoseconds(ts.Fraction()));
     

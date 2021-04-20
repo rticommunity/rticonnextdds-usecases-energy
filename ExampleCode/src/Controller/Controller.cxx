@@ -38,12 +38,12 @@
 const std::string OptimizerID = "SampleOpt";
 const std::string InterconnectID = "SampleInterconnect";
 const std::string VizID = "SampleViz";
-const std::chrono::duration<std::chrono::seconds> MinIslandDelay = std::chrono::seconds(5);
+const std::chrono::duration<float> MinIslandDelay = std::chrono::seconds(5);
 
 
 
 Energy::Common::Timestamp SwitchTime;
-const std::chrono::duration<std::chrono::seconds> MaxTimeToWait = std::chrono::seconds(300);
+const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
 /* IslandOperation
 * This is the root function called by IslandMicrogrid and UnintentionalIsland
@@ -67,7 +67,7 @@ void IslandOperation( bool Immediate,
             VFDeviceID = sample.data().Device();
     sampleVF_Device_Active.Device(VFDeviceID); // Set Device for VF operation
 
-    duration<seconds> IslandDelay;
+    duration<float> IslandDelay;
     if (Immediate) {
         IslandDelay = seconds(0);
     }
