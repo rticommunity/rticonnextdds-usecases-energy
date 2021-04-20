@@ -33,7 +33,7 @@
 
 #include <dds/dds.hpp>
 
-#include "../../_Common/EnergyComms.hpp"
+#include "EnergyComms.hpp"
 
 const std::string OptimizerID = "SampleOpt";
 const std::string InterconnectID = "SampleInterconnect";
