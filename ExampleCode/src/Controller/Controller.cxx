@@ -80,7 +80,7 @@ void IslandOperation( bool Immediate,
     }
 
     // Set the time to perform the island operation
-    auto targetTime = time_point_cast<seconds>(time_point<high_resolution_clock>(high_resolution_clock::now() + IslandDelay));
+    auto targetTime = high_resolution_clock::now() + IslandDelay;
     // Create the timestamp used in DDS communication
     auto ts = Energy::Common::Timestamp(duration_cast<seconds>(targetTime.time_since_epoch()).count(), 0);
     sampleVF_Device_Active.SwitchTime(ts); // Set time for VF switchover
