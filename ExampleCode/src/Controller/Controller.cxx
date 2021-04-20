@@ -33,7 +33,7 @@
 
 #include <dds/dds.hpp>
 
-#include "EnergyComms.hpp"
+#include "../../_Common/EnergyComms.hpp"
 
 const std::string OptimizerID = "SampleOpt";
 const std::string InterconnectID = "SampleInterconnect";
@@ -324,6 +324,7 @@ void Optimize(
         dds::sub::status::DataState::any_data());
 
     std::string VFDevice = "";
+    bool VFDeviceChanged = false;
 
     auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED; // This is the reasonable default
     auto sampleControl_Power = Energy::Common::CNTL_Single_float32("", OptimizerID, 0.0);
@@ -367,7 +368,7 @@ void Optimize(
             // This is really still an island case.
         case Energy::Enums::MicrogridStatus::ISLANDED:
             // Get the VF Device ID once.
-            bool VFDeviceChanged = false;
+            VFDeviceChanged = false;
             for (auto vfdev : ReaderVF_Device.read())
                 if (vfdev.info().valid()) {
                     // If there is a VF Device change, update the Active VF Device
