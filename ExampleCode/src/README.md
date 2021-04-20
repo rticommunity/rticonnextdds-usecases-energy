@@ -71,6 +71,9 @@ operate together to support islanded operation and seemless handoffs of VF suppo
 - **Control_Irradiance**: Irradiance Control. This topic is used wholly for simulation and provides a mechanism
   to change the solar irradiance present on the solar panels during simulation.
   
+- **Control_SOC**: SOC Control. This topic is used wholly for simulation and provides a mechanism to change the 
+	SOC of an energy storage system during simulation.
+   
 - **VF_Device**: VF Device Available. This topic actively uses ownership and ownership strength to vie for which
   device will be providing voltage and frequency support to the microgrid while islanded. As the energy storage
   system charges and discharges the device taking this role can change.

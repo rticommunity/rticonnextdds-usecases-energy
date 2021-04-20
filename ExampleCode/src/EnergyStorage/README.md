@@ -7,14 +7,19 @@ load and as both a current source and VF device.
 
 ### Published Topics
 
-- **Meas_NodePower**: Specifies the power supllied to or pulled from the network node (in kW) the device is
-  attached to.
+- **Meas_NodePower**
+- **Meas_SOC**
+- **Info_Battery**
+- **Status_Device**
+- **VF_Device**
+- **Control_Power**: This is only used to create a base value for its own power level
 
-- **Info_Battery**: Includes information on max generation and load capacity (in kW), which is generic to all
-  devices. It also specifies the node that the device is connected to. This topic also includes the
-  battery-specific element of capactiy (in kWh).
-  
-- **Status_Device**: 
+### Subscribed Topics
+
+- **Control_Power**
+- **Control_Device**
+- **VF_Device_Active**
+- **Control_SOC**: Used only within simulation to manually change device SOC.
 
 ## Building the Example :wrench:
 
