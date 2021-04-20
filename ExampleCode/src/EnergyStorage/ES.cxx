@@ -199,8 +199,8 @@ void ContinuousVFStrength(dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_
         WriterVF_Device.qos(QosVF_Device);
         WriterVF_Device.write(dev);
 
-        // We are adding a delay here of 1 second. In reality this is probably overkill
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        // We are adding a delay here of 500 milliseconds. In reality this is probably overkill
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
 

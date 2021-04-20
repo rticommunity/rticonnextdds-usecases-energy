@@ -127,15 +127,12 @@ module Ops {
 
     struct Info_Generator : Energy::Ops::Info_Resource {
       sequence<Energy::Common::EfficiencyPoint, 1024> PowerEfficiency;
+	  uint32 RampUpTime;
     };
 
     struct Status_Device : Energy::Common::STAT {
       Energy::Enums::ConnectionStatus ConnectionStatus;
       Energy::Enums::OperationStatus OperationStatus;
-    };
-
-    struct Status_Battery : Energy::Ops::Status_Device {
-      float SOC;
     };
 
     struct Status_Microgrid : Energy::Common::STAT {

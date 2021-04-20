@@ -1,20 +1,4 @@
-# Example Code: Energy Storage
-
-## Energy Storage Simulated Device
-
-This exaple simulates an Energy Storage on the microgrid. This device acts as both an intelligent
-load and as both a current source and VF device.
-
-### Published Topics
-
-- **Meas_NodePower**: Specifies the power supllied to or pulled from the network node (in kW) the device is
-  attached to.
-
-- **Info_Battery**: Includes information on max generation and load capacity (in kW), which is generic to all
-  devices. It also specifies the node that the device is connected to. This topic also includes the
-  battery-specific element of capactiy (in kWh).
-  
-- **Status_Device**: 
+# Example Code: Main Interconnection
 
 ## Building the Example :wrench:
 
@@ -58,13 +42,13 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-ES.exe
+MainInterconnect.exe
 ```
 
 On *UNIX* systems run:
 
 ```sh
-./ES
+./MainInterconnect
 ```
 
 ## Customizing the Build

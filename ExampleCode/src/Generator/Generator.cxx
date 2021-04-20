@@ -43,6 +43,7 @@ const std::string DeviceID = "SampleGen";
 const std::string NodeID = "004";
 const float MaxLoad = 0.0;
 const float MaxGeneration = 8.0;
+const std::chrono::duration<std::chrono::seconds> RampUpTime = std::chrono::seconds(10);
 rti::core::bounded_sequence<Energy::Common::EfficiencyPoint, 1024> EfficiencyCurve;
 Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
 Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::DISABLED_OFF;
@@ -109,7 +110,7 @@ void InterconnectControl(Energy::Enums::DeviceControl command)
         connected = true;
         OperationStatus = Energy::Enums::OperationStatus::ENABLED_STARTING;
         // 10 second wait to simulate generator ramp-up
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::this_thread::sleep_for(RampUpTime);
         ConnectionStatus = Energy::Enums::ConnectionStatus::CONNECTED;
         OperationStatus = Energy::Enums::OperationStatus::ENABLED_ON;
         break;
@@ -177,27 +178,33 @@ void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMe
 void ContinuousVFStrength(dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_Device)
 {
     Energy::Ops::VF_Device dev(DeviceID);
-    int32_t str = 20 * MaxGeneration;
+    int32_t str;
     dds::pub::qos::DataWriterQos QosVF_Device = WriterVF_Device.qos();
 
-    QosVF_Device << dds::core::policy::OwnershipStrength(str);
-    WriterVF_Device.qos(QosVF_Device);
-    WriterVF_Device.write(dev);
+    while (true) {
+        if (ActiveVF)
+            str = 80 + MaxGeneration * 100; // This keeps the generator at a higher strength
+        else
+            str = 20 * MaxGeneration;
 
+        QosVF_Device << dds::core::policy::OwnershipStrength(str);
+        WriterVF_Device.qos(QosVF_Device);
+        WriterVF_Device.write(dev);
+
+        // We are adding a delay here of 1 second. In reality this is probably overkill
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
 }
 
 void VFDeviceActivity(Energy::Common::Timestamp ts)
 {
-    using Clock = std::chrono::high_resolution_clock;
-    using Seconds = std::chrono::seconds;
-    using Nanoseconds = std::chrono::nanoseconds;
-    using Duration = std::chrono::duration<Seconds>;
+    using namespace std::chrono;
 
-    std::chrono::time_point<Clock> targetTime(Seconds(ts.Seconds()) + Nanoseconds(ts.Fraction()));
+    time_point<high_resolution_clock> targetTime(seconds(ts.Seconds()) + nanoseconds(ts.Fraction()));
 
     // Check to make sure that something isn't wrong and the scheduled time to wait to transition is greater that the
     // configured max time to wait. For an actual application this would need some kind of status feedback for safety.
-    if (std::chrono::duration_cast<Duration>(targetTime - Clock::now()) > MaxTimeToWait) {
+    if (duration_cast<duration<seconds>>(targetTime - high_resolution_clock::now()) > MaxTimeToWait) {
         std::cerr << "Time to switch to VF greater than Max Allowed Time.\n";
         return;
     }
@@ -212,7 +219,7 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
 
     while (ActiveVF) {
         // Here is where device monitoring specific to being the active VF Device would occur.
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(milliseconds(100));
     }
 
     // Active VF has become false. Time to close everything out. There should still be a time specified to make the
@@ -227,7 +234,7 @@ void publisher_main(int domain_id)
 {
     // Create the Domain Particimant QOS to set Entity Name
     dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
-    rti::core::policy::EntityName entityName("ES-" + DeviceID);
+    rti::core::policy::EntityName entityName("Generator-" + DeviceID);
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
@@ -330,7 +337,8 @@ void publisher_main(int domain_id)
     );
     // Create Sample objects for datawriters (except for Meas_NodePower, which is handled in another thread)
     InitializeEfficiencyCurve();
-    Energy::Ops::Info_Generator sampleInfo_Generator(DeviceID, NodeID, MaxLoad, MaxGeneration, EfficiencyCurve);
+    Energy::Ops::Info_Generator sampleInfo_Generator(DeviceID, NodeID, MaxLoad, MaxGeneration, EfficiencyCurve, 
+        std::chrono::duration_cast<std::chrono::duration<uint32_t>>(RampUpTime).count());
     Energy::Common::CNTL_Single_float32 sampleControl_Power(DeviceID, DeviceID, 0.0);
 
     // Write Info, Status, and Load Control. Each of these topics should only change due to exception.

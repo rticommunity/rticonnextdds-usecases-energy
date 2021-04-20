@@ -148,6 +148,11 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
           <ownership>
             <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
           </ownership>
+          <deadline>
+            <period>
+              <sec>1</sec>
+            </period>
+          </deadline>
           <liveliness>
             <lease_duration>
               <sec>10</sec>
@@ -159,6 +164,11 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
           <ownership>
             <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
           </ownership>
+          <deadline>
+            <period>
+              <sec>1</sec>
+            </period>
+          </deadline>
           <liveliness>
             <lease_duration>
               <sec>10</sec>
