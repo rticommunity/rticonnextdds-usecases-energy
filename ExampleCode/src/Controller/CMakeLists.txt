@@ -21,10 +21,6 @@ include(ConnextDdsAddExample)
 connextdds_add_example (
     IDL "EnergyComms"
     LANG "C++11"
-	QOS_FILENAME "${CMAKE_CURRENT_SOURCE_DIR}/../EnergyComms.xml"
-	#NO_REQUIRE_QOS
-    #CODEGEN_ARGS
-    #LEGACY_PLUGIN
     APPLICATION_NAMES
         "Controller"
 )
