@@ -280,13 +280,13 @@ void publisher_main(int domain_id)
     /* Create Query Conditions */
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + DeviceID + "'" };
-    dds::sub::status::DataState commonDataState = dds::sub::status::DataState::DataState(
+    dds::sub::status::DataState commonDataState = dds::sub::status::DataState(
         dds::sub::status::SampleState::not_read(),
         dds::sub::status::ViewState::any(),
         dds::sub::status::InstanceState::alive());
     // Query Condition for Controlling the device. This is basic functionality for a grid connected device.
     dds::sub::cond::QueryCondition QueryConditionControl_Device(
-        dds::sub::Query::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
+        dds::sub::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
         commonDataState,
         [&ReaderControl_Device](dds::core::cond::Condition condition) {
             auto condition_as_qc = dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
@@ -301,7 +301,7 @@ void publisher_main(int domain_id)
     );
     // Query Condition for power setting. This is basic functionality for a ES system
     dds::sub::cond::QueryCondition QueryConditionControl_Power(
-        dds::sub::Query::Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
+        dds::sub::Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
         commonDataState,
         [&ReaderControl_Power](dds::core::cond::Condition condition) {
             auto condition_as_qc = dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);

@@ -169,8 +169,8 @@ void publisher_main(int domain_id)
     std::vector<std::string> query_parameters = { "'" + DeviceID + "'" };
     // Query Condition for Controlling the device. This is basic functionality for a grid connected device.
     dds::sub::cond::QueryCondition QueryConditionControl_Device(
-        dds::sub::Query::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
-        dds::sub::status::DataState::DataState(
+        dds::sub::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
+        dds::sub::status::DataState(
             dds::sub::status::SampleState::not_read(),
             dds::sub::status::ViewState::any(),
             dds::sub::status::InstanceState::alive()),
@@ -187,8 +187,8 @@ void publisher_main(int domain_id)
     );
     // Query Condition for power curtailment. This is basic functionality for a PV system
     dds::sub::cond::QueryCondition QueryConditionControl_Power(
-        dds::sub::Query::Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
-        dds::sub::status::DataState::DataState(
+        dds::sub::Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
+        dds::sub::status::DataState(
             dds::sub::status::SampleState::not_read(),
             dds::sub::status::ViewState::any(),
             dds::sub::status::InstanceState::alive()),
@@ -205,8 +205,8 @@ void publisher_main(int domain_id)
     );
     // Query Condition for Irradiance. This is used for simulation only
     dds::sub::cond::QueryCondition QueryConditionControl_Irradiance(
-        dds::sub::Query::Query(ReaderControl_Irradiance, "Device MATCH %0", query_parameters),
-        dds::sub::status::DataState::DataState(
+        dds::sub::Query(ReaderControl_Irradiance, "Device MATCH %0", query_parameters),
+        dds::sub::status::DataState(
             dds::sub::status::SampleState::not_read(),
             dds::sub::status::ViewState::any(),
             dds::sub::status::InstanceState::alive()),

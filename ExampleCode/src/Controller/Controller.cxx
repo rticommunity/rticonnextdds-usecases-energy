@@ -187,9 +187,9 @@ void Resynchronize(
     using Condition = dds::core::cond::Condition;
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + InterconnectID + "'" };
-    DataState commonDataState = DataState::DataState(SampleState::any(), ViewState::any(), InstanceState::alive());
+    DataState commonDataState = DataState(SampleState::any(), ViewState::any(), InstanceState::alive());
     // Query Condition for Controlling the device. This is basic functionality for a grid connected device.
-    QueryCondition QueryConditionStatus_Device(Query::Query(ReaderStatus_Device, "Device MATCH %0", query_parameters),
+    QueryCondition QueryConditionStatus_Device(Query(ReaderStatus_Device, "Device MATCH %0", query_parameters),
         commonDataState, [&ReaderStatus_Device, &waiting](Condition condition) {
             auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
             auto samples = ReaderStatus_Device.select().condition(condition_as_qc).read();
@@ -525,9 +525,9 @@ void publisher_main(int domain_id)
     using Condition = dds::core::cond::Condition;
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + VizID + "'" };
-    DataState commonDataState = DataState::DataState( SampleState::not_read(), ViewState::any(), InstanceState::alive());
+    DataState commonDataState = DataState( SampleState::not_read(), ViewState::any(), InstanceState::alive());
     // Query Condition for Controlling the Microgrid. This is basic functionality for a grid connected device.
-    QueryCondition QueryConditionStatus_Microgrid( Query::Query(ReaderStatus_Microgrid, "Device MATCH %0", query_parameters),
+    QueryCondition QueryConditionStatus_Microgrid( Query(ReaderStatus_Microgrid, "Device MATCH %0", query_parameters),
         commonDataState, [&ReaderStatus_Microgrid, &ReaderVF_Device, &ReaderInfo_Generator, &ReaderStatus_Device,
         &WriterControl_Device, &WriterVF_Device_Active, &WriterStatus_Microgrid](Condition condition) {
             auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
@@ -541,7 +541,7 @@ void publisher_main(int domain_id)
     );
     // Query Condition for watching if the Interconnect trips
     query_parameters = { "'" + InterconnectID + "'" };
-    QueryCondition QueryConditionInterconnectStatus( Query::Query(ReaderStatus_Device, "Device MATCH %0", query_parameters),
+    QueryCondition QueryConditionInterconnectStatus( Query(ReaderStatus_Device, "Device MATCH %0", query_parameters),
         commonDataState, [&ReaderStatus_Device, &ReaderStatus_Microgrid, &ReaderVF_Device, &ReaderInfo_Generator,
         &WriterControl_Device, &WriterVF_Device_Active, &WriterStatus_Microgrid](Condition condition) {
             auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
