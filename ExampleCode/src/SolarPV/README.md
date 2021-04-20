@@ -56,7 +56,7 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-PV.exe
+Debug\PV.exe
 ```
 
 On *UNIX* systems run:

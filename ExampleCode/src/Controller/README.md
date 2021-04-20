@@ -64,7 +64,7 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-Controller.exe
+Debug\Controller.exe
 ```
 
 On *UNIX* systems run:

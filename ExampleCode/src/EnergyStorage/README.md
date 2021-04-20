@@ -63,7 +63,7 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-ES.exe
+Debug\ES.exe
 ```
 
 On *UNIX* systems run:

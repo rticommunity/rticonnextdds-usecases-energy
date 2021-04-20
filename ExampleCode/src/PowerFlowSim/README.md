@@ -53,7 +53,7 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-PowerFlowSim.exe
+Debug\PowerFlowSim.exe
 ```
 
 On *UNIX* systems run:

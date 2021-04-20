@@ -56,7 +56,7 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-Generator.exe
+Debug\Generator.exe
 ```
 
 On *UNIX* systems run:
