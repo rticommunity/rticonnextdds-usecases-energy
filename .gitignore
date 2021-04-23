@@ -1,0 +1,9 @@
+# Ignore build directories
+**/build
+
+# Ignore files created through cmake
+EnergyComms.cxx
+EnergyComms.hpp
+EnergyCommsPlugin.cxx
+EnergyCommsPlugin.hpp
+EnergyComms_timestamp.cmake
