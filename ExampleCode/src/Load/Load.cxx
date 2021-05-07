@@ -117,13 +117,13 @@ void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMe
 
 void publisher_main(int domain_id)
 {
-    // Create the Domain Particimant QOS to set Entity Name
+    // Create the Domain Participant QOS to set Entity Name
     dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
     rti::core::policy::EntityName entityName("Load-" + DeviceID);
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -198,8 +198,8 @@ void publisher_main(int domain_id)
 
     // Create Sample objects for datawriters (except for Meas_NodePower, which is handled in another thread)
     Energy::Ops::Info_Resource sampleInfo_Resource(DeviceID, NodeID, MaxLoad, MaxGeneration);
-    Energy::Ops::Status_Device sampleStatus_Device(DeviceID, 
-        Energy::Enums::ConnectionStatus::CONNECTED, 
+    Energy::Ops::Status_Device sampleStatus_Device(DeviceID,
+        Energy::Enums::ConnectionStatus::CONNECTED,
         Energy::Enums::OperationStatus::ENABLED_ON);
     Energy::Common::CNTL_Single_float32 sampleControl_Power(DeviceID, DeviceID, -5.0);
 
@@ -217,7 +217,7 @@ void publisher_main(int domain_id)
     StatusConditionControl_Power.enabled_statuses(
         dds::core::status::StatusMask::liveliness_changed());
     // Lambda functions for the status conditions
-    // If there is a liveliness change for device control, 
+    // If there is a liveliness change for device control,
     StatusConditionControl_Device->handler(
         [&ReaderControl_Device, &WriterStatus_Device](dds::core::cond::Condition condition) {
             dds::core::status::StatusMask status_mask = ReaderControl_Device.status_changes();

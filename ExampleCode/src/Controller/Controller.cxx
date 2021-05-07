@@ -40,8 +40,6 @@ const std::string InterconnectID = "SampleInterconnect";
 const std::string VizID = "SampleViz";
 const std::chrono::duration<float> MinIslandDelay = std::chrono::seconds(5);
 
-
-
 Energy::Common::Timestamp SwitchTime;
 const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
@@ -117,7 +115,7 @@ void IslandMicrogrid(
     auto sampleStatus_Microgrid = Energy::Ops::Status_Microgrid(OptimizerID, Energy::Enums::MicrogridStatus::REQUEST_ISLAND);
     WriterStatus_Microgrid.write(sampleStatus_Microgrid);
 
-    auto ThreadIsland = std::thread(IslandOperation, false, ReaderVF_Device, ReaderInfo_Generator, 
+    auto ThreadIsland = std::thread(IslandOperation, false, ReaderVF_Device, ReaderInfo_Generator,
         WriterControl_Device, WriterVF_Device_Active);
 
     // Here is where code would be called to make the microgrid ready for off-grid operation if the
@@ -289,7 +287,7 @@ void CheckTrip(
 
     switch (currentStatus) {
     case Energy::Enums::MicrogridStatus::CONNECTED:
-        std::thread(UnintentionalIsland, ReaderVF_Device, ReaderInfo_Generator, WriterControl_Device, WriterVF_Device_Active, 
+        std::thread(UnintentionalIsland, ReaderVF_Device, ReaderInfo_Generator, WriterControl_Device, WriterVF_Device_Active,
             WriterStatus_Microgrid).detach();
         break;
     default:
@@ -378,7 +376,7 @@ void Optimize(
                         sampleVF_Device_Active.Device(VFDevice);
                         sampleVF_Device_Active.SwitchTime(
                             Energy::Common::Timestamp(
-                                duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()).count() + 
+                                duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()).count() +
                                 duration_cast<seconds>(MinIslandDelay).count(), 0)
                         );
                     }
@@ -454,7 +452,7 @@ void publisher_main(int domain_id)
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -478,7 +476,7 @@ void publisher_main(int domain_id)
     qos_control_power << dds::core::policy::OwnershipStrength(100);
     // Used to control setpoints for ES, Generator, and PV
     DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Power(publisher, TopicControl_Power, qos_control_power);
-    // Actual Status of Microgrid 
+    // Actual Status of Microgrid
     DataWriter<Energy::Ops::Status_Microgrid> WriterStatus_Microgrid(publisher, TopicStatus_Microgrid,
         QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Status"));
     // Used to tell all VF Devices which one will be active
@@ -486,7 +484,7 @@ void publisher_main(int domain_id)
         QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control"));
     // Used to control the Main Interconnect for island/resync
     DataWriter<Energy::Ops::Control_Device> WriterControl_Device(publisher, TopicControl_Device,
-        QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control"));    
+        QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control"));
 
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
@@ -558,11 +556,23 @@ void publisher_main(int domain_id)
     std::thread threadOptimization(&Optimize, ReaderStatus_Microgrid, ReaderInfo_Generator, ReaderInfo_Battery, ReaderVF_Device,
         ReaderMeas_NodePower, ReaderMeas_SOC, WriterControl_Power, WriterVF_Device_Active);
 
+    // Turn on all devices
+    Energy::Ops::Control_Device sampleControlDevice("SampleES", OptimizerID, Energy::Enums::DeviceControl::CONNECT);
+    WriterControl_Device.write(sampleControlDevice);
+    sampleControlDevice.Device("SamplePV");
+    WriterControl_Device.write(sampleControlDevice);
+    sampleControlDevice.Device("SampleLoad");
+    WriterControl_Device.write(sampleControlDevice);
+
+    // Write Initial Microgrid status
+    Energy::Ops::Status_Microgrid sampleStatusMicrogrid(OptimizerID, Energy::Enums::MicrogridStatus::CONNECTED);
+    WriterStatus_Microgrid.write(sampleStatusMicrogrid);
+
     // Set up the Waitset
     dds::core::cond::WaitSet waitset;
     waitset += QueryConditionStatus_Microgrid;
     waitset += QueryConditionInterconnectStatus;
-    
+
     // Here we are handling our waitset and reactions to inputs
     while (true) {
         // Dispatch will call the handlers associated to the WaitSet conditions when they activate

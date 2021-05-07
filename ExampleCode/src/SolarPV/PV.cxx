@@ -126,7 +126,7 @@ void publisher_main(int domain_id)
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -245,7 +245,7 @@ void publisher_main(int domain_id)
     StatusConditionControl_Power.enabled_statuses(
         dds::core::status::StatusMask::liveliness_changed());
     // Lambda functions for the status conditions
-    // If there is a liveliness change for device control, 
+    // If there is a liveliness change for device control,
     StatusConditionControl_Device->handler(
         [&ReaderControl_Device, &WriterStatus_Device](dds::core::cond::Condition condition) {
             dds::core::status::StatusMask status_mask = ReaderControl_Device.status_changes();

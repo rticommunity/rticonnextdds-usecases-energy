@@ -1,15 +1,19 @@
-# Example Code: Microgrid Controller
+# Example Code: Visualization
 
-## Microgrid Controller
-This application combines microgrid control and microgrid optimization. Within
-the application these roles are kept relatively separate, which could allow for
-splitting them into two different applications.
+## Visualizer
+Combining GTK+ 3.0 and RTI Connext DDS, this application provides a graphical
+user interface to the system, taking data from the different grid elements and
+presenting it to the user. This interface can also be used to modify some system
+parameters and cause the microgrid to connect to and disconnect from the main
+grid.
 
 ### Published Topics
 
 - **Control_Power**
 - **Control_Device**
-- **Status_Microgrid**
+- **Control_Microgrid**
+- **Control_Irradiance**
+- **Control_SOC**
 - **VF_Device_Active**
 
 ### Subscribed Topics
@@ -21,13 +25,25 @@ splitting them into two different applications.
 - **Info_Battery**
 - **Status_Device**
 - **Status_Microgrid**
-- **VF_Device**
 
 ## Building the Example :wrench:
 
-To build this example, first run CMake to generate the corresponding build
-files. We recommend you use a separate directory to store all the generated
-files (e.g., ./build).
+To build this example, you must have gtk+ and gtkmm installed on your
+development system. Glade is also very useful for investigating and editing
+the *Visualizer.glade* configuration file.
+
+On Ubuntu you can install the necessary (and optional) prerequisites with the
+following commands.
+
+``` shell
+sudo apt update
+sudo apt upgrade
+sudo apt install libgtkmm-3.0-dev glade
+```
+
+Once the dependencies are installed, run CMake to generate the corresponding
+build files. We recommend you use a separate directory to store all the
+generated files (e.g., ./build).
 
 ```sh
 mkdir build
@@ -65,13 +81,13 @@ application loads the QoS defined in *USER_QOS_PROFILES.xml*):
 On *Windows* systems run:
 
 ```sh
-Debug\Controller.exe
+Debug\Visualizer.exe
 ```
 
 On *UNIX* systems run:
 
 ```sh
-./Controller
+./Visualizer
 ```
 
 ## Customizing the Build

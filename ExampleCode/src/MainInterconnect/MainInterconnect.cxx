@@ -39,31 +39,31 @@ bool connected = true;
 std::string DeviceID = "SampleInterconnect";
 std::string NodeID = "001";
 std::string NodeIDGrid = "000";
-Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
-Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::DISABLED_OFF;
+Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::CONNECTED;
+Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::ENABLED_ON;
 
 /* StatusMonitor
 * In this example we are watching for the internal status to change, and when it does to publish a new status.
 */
 void StatusMonitor(dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus_Device)
 {
-	Energy::Ops::Status_Device sample(DeviceID, ConnectionStatus, OperationStatus);
+    Energy::Ops::Status_Device sample(DeviceID, ConnectionStatus, OperationStatus);
 
-	//Perform initial status write
-	WriterStatus_Device.write(sample);
+    //Perform initial status write
+    WriterStatus_Device.write(sample);
 
-	while (true)
-	{
-		// When there is a change to the global variables, send out a new sample
-		if (sample.ConnectionStatus() != ConnectionStatus || sample.OperationStatus() != OperationStatus) {
-			sample.ConnectionStatus(ConnectionStatus);
-			sample.OperationStatus(OperationStatus);
-			WriterStatus_Device.write(sample);
-		}
-		// When no change has occured, sleep for 100 ms
-		else
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	}
+    while (true)
+    {
+        // When there is a change to the global variables, send out a new sample
+        if (sample.ConnectionStatus() != ConnectionStatus || sample.OperationStatus() != OperationStatus) {
+            sample.ConnectionStatus(ConnectionStatus);
+            sample.OperationStatus(OperationStatus);
+            WriterStatus_Device.write(sample);
+        }
+        // When no change has occured, sleep for 100 ms
+        else
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 }
 
 /* InterconnectControl
@@ -72,46 +72,46 @@ void StatusMonitor(dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus
 */
 void InterconnectControl(Energy::Enums::DeviceControl command)
 {
-	// Here is where code would go to interface with the actual relay connecting the microgrid to the larger grid. Based
-	// on its response, the corresponding status would be updated. If this is a lengthy process, then a thread should
-	// probably be spawned that would allow status updates to be sent out while letting the device process other incoming
-	// messages.
+    // Here is where code would go to interface with the actual relay connecting the microgrid to the larger grid. Based
+    // on its response, the corresponding status would be updated. If this is a lengthy process, then a thread should
+    // probably be spawned that would allow status updates to be sent out while letting the device process other incoming
+    // messages.
 
-	switch (command.underlying())
-	{
-	case Energy::Enums::DeviceControl::CONNECT:
-		connected = true;
-		ConnectionStatus = Energy::Enums::ConnectionStatus::CONNECTED;
-		OperationStatus = Energy::Enums::OperationStatus::ENABLED_ON;
-		break;
-	case Energy::Enums::DeviceControl::DISCONNECT:
-		connected = false;
-		ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
-		OperationStatus = Energy::Enums::OperationStatus::DISABLED_READY;
-		break;
-	default:
-		break;
-	}
+    switch (command.underlying())
+    {
+    case Energy::Enums::DeviceControl::CONNECT:
+        connected = true;
+        ConnectionStatus = Energy::Enums::ConnectionStatus::CONNECTED;
+        OperationStatus = Energy::Enums::OperationStatus::ENABLED_ON;
+        break;
+    case Energy::Enums::DeviceControl::DISCONNECT:
+        connected = false;
+        ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
+        OperationStatus = Energy::Enums::OperationStatus::DISABLED_READY;
+        break;
+    default:
+        break;
+    }
 }
 
 /* GetMeasurement
-* In this example we have two measurements, one for each side of the interconnect. This could be the case when the load 
+* In this example we have two measurements, one for each side of the interconnect. This could be the case when the load
 * is on a single phase or if the only thing that needs to be returned (or is available) is the aggregate. This, along
 * with the data model, would need to be changed to pass information on a 3-phase system.
 */
 float GetMeasurement()
 {
-	// Some sort of communication to the actual system would be here. In our case we're just going to pull from the
-	// simulated measurement variable
+    // Some sort of communication to the actual system would be here. In our case we're just going to pull from the
+    // simulated measurement variable
 
-	// We are adding a delay here to simulate the actual fetch of information from the system
-	std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 milliseconds
-	std::this_thread::sleep_for(timespan);
+    // We are adding a delay here to simulate the actual fetch of information from the system
+    std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 milliseconds
+    std::this_thread::sleep_for(timespan);
 
-	if (connected)
-		return SimMeasurement;
-	else
-		return 0.0;
+    if (connected)
+        return SimMeasurement;
+    else
+        return 0.0;
 }
 
 /* ContinuousWriter
@@ -122,40 +122,40 @@ float GetMeasurement()
 */
 void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMeas_NodePower)
 {
-	Energy::Ops::Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
+    Energy::Ops::Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
 
-	while (true) {
-		// Modify the measurement data to be written here
-		sampleMeas_NodePower.Value(GetMeasurement()); // This is a blocking call that times the loop.
-		// Set NodeID to Microgrid Side
-		sampleMeas_NodePower.Node(NodeID);
+    while (true) {
+        // Modify the measurement data to be written here
+        sampleMeas_NodePower.Value(GetMeasurement()); // This is a blocking call that times the loop.
+        // Set NodeID to Microgrid Side
+        sampleMeas_NodePower.Node(NodeID);
 
-		// Write the measurement data
-		WriterMeas_NodePower.write(sampleMeas_NodePower);
+        // Write the measurement data
+        WriterMeas_NodePower.write(sampleMeas_NodePower);
 
-		// Update NodeID for grid side and write sample again
-		sampleMeas_NodePower.Node(NodeIDGrid);
-		WriterMeas_NodePower.write(sampleMeas_NodePower);
+        // Update NodeID for grid side and write sample again
+        sampleMeas_NodePower.Node(NodeIDGrid);
+        WriterMeas_NodePower.write(sampleMeas_NodePower);
 
-	}
+    }
 }
 
 void publisher_main(int domain_id)
 {
-	// Create the Domain Particimant QOS to set Entity Name
-	dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
-	rti::core::policy::EntityName entityName("Interconnect-" + DeviceID);
-	qos_participant << entityName;
+    // Create the Domain Particimant QOS to set Entity Name
+    dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
+    rti::core::policy::EntityName entityName("Interconnect-" + DeviceID);
+    qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
     dds::topic::Topic<Energy::Ops::Status_Device> TopicStatus_Device(participant, "Status_Device");
     dds::topic::Topic<Energy::Ops::Control_Device> TopicControl_Device(participant, "Control_Device");
     dds::topic::Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
-    
+
     // Create Publisher
     dds::pub::Publisher publisher(participant);
 
@@ -164,7 +164,7 @@ void publisher_main(int domain_id)
         dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Measurement"));
     dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus_Device(publisher, TopicStatus_Device,
         dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Status"));
-    
+
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
 
@@ -173,7 +173,7 @@ void publisher_main(int domain_id)
         dds::core::QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
     dds::sub::DataReader<Energy::Common::CNTL_Single_float32> ReaderControl_Power(subscriber, TopicControl_Power,
         dds::core::QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
-    
+
     /* Create Query Conditions */
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + DeviceID + "'" };
@@ -204,12 +204,14 @@ void publisher_main(int domain_id)
             auto condition_as_qc = dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
             auto samples = ReaderControl_Power.select().condition(condition_as_qc).read();
             for (auto sample : samples)
-                if (sample.info().valid())
+                if (sample.info().valid()) {
                     SimMeasurement = sample.data().SetPoint();
+
+                }
         }
     );
-    
-    
+
+
     // Launch thread for continuous node measurement writes, status updates, and VF Device Writes
     std::thread threadMeas(&ContinuousWriter, WriterMeas_NodePower);
     std::thread threadStatus(&StatusMonitor, WriterStatus_Device);
@@ -218,7 +220,7 @@ void publisher_main(int domain_id)
     dds::core::cond::WaitSet waitset;
     waitset += QueryConditionControl_Device;
     waitset += QueryConditionControl_Power;
-    
+
     // Here we are handling our waitset and reactions to inputs
     while (true) {
         // Dispatch will call the handlers associated to the WaitSet conditions when they activate
@@ -228,24 +230,24 @@ void publisher_main(int domain_id)
 
 int main(int argc, char* argv[])
 {
-	// To turn on additional logging, include <rti/config/Logger.hpp> and
-	// uncomment the following line:
-	// rti::config::Logger::instance().verbosity(rti::config::Verbosity::STATUS_ALL);
+    // To turn on additional logging, include <rti/config/Logger.hpp> and
+    // uncomment the following line:
+    // rti::config::Logger::instance().verbosity(rti::config::Verbosity::STATUS_ALL);
 
-	try {
-		publisher_main(0);
-	}
-	catch (const std::exception& ex) {
-		// This will catch DDS exceptions
-		std::cerr << "Exception in publisher_main(): " << ex.what() << std::endl;
-		return -1;
-	}
+    try {
+        publisher_main(0);
+    }
+    catch (const std::exception& ex) {
+        // This will catch DDS exceptions
+        std::cerr << "Exception in publisher_main(): " << ex.what() << std::endl;
+        return -1;
+    }
 
-	// RTI Connext provides a finalize_participant_factory() method
-	// if you want to release memory used by the participant factory singleton.
-	// Uncomment the following line to release the singleton:
-	//
-	// dds::domain::DomainParticipant::finalize_participant_factory();
+    // RTI Connext provides a finalize_participant_factory() method
+    // if you want to release memory used by the participant factory singleton.
+    // Uncomment the following line to release the singleton:
+    //
+    // dds::domain::DomainParticipant::finalize_participant_factory();
 
-	return 0;
+    return 0;
 }

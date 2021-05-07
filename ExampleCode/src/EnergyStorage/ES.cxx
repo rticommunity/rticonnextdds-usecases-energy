@@ -148,7 +148,7 @@ float GetSOC()
 * whether or not other interfaces are thread safe additional semaphores or locks would need to be introduced when
 * accessing outside interfaces between multiple threads. We are not doing that here because the data being published
 * is simulated.
-* 
+*
 * For this we are doing Node Measurement and SOC. Many times SOC is seen within status type topics or messages. Here we
 * treat it as a measurement.
 */
@@ -172,7 +172,7 @@ void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMe
 /* ContinuousVFStrength
 * This helps support VF device switching by having every device provide a relative strength as a VF device. The actual
 * math used in a given system will probably vary, but something like this should be appropriate. The goal of this
-* particular math is to force the generator to take over at some point when SOC is below 20% and for the battery to 
+* particular math is to force the generator to take over at some point when SOC is below 20% and for the battery to
 * take over when SOC goes above 80%.
 */
 void ContinuousVFStrength(dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_Device)
@@ -212,7 +212,7 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
     using Duration = std::chrono::duration<float>;
 
     std::chrono::time_point<Clock> targetTime(Seconds(ts.Seconds()) + Nanoseconds(ts.Fraction()));
-    
+
     // Check to make sure that something isn't wrong and the scheduled time to wait to transition is greater that the
     // configured max time to wait. For an actual application this would need some kind of status feedback for safety.
     if (std::chrono::duration_cast<Duration>(targetTime - Clock::now()) > MaxTimeToWait) {
@@ -249,7 +249,7 @@ void publisher_main(int domain_id)
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -384,7 +384,7 @@ void publisher_main(int domain_id)
     StatusConditionControl_Power.enabled_statuses(
         dds::core::status::StatusMask::liveliness_changed());
     // Lambda functions for the status conditions
-    // If there is a liveliness change for device control, 
+    // If there is a liveliness change for device control,
     StatusConditionControl_Device->handler(
         [&ReaderControl_Device](dds::core::cond::Condition condition) {
             dds::core::status::StatusMask status_mask = ReaderControl_Device.status_changes();

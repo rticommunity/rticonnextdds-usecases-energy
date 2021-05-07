@@ -56,16 +56,18 @@ const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 */
 void InitializeEfficiencyCurve()
 {
-    EfficiencyCurve[0] = Energy::Common::EfficiencyPoint(0.0, 0.00);
-    EfficiencyCurve[1] = Energy::Common::EfficiencyPoint(1.0, 0.30);
-    EfficiencyCurve[2] = Energy::Common::EfficiencyPoint(2.0, 0.40);
-    EfficiencyCurve[3] = Energy::Common::EfficiencyPoint(3.0, 0.52);
-    EfficiencyCurve[4] = Energy::Common::EfficiencyPoint(4.0, 0.65);
-    EfficiencyCurve[5] = Energy::Common::EfficiencyPoint(5.0, 0.82);
-    EfficiencyCurve[6] = Energy::Common::EfficiencyPoint(6.0, 0.88);
-    EfficiencyCurve[7] = Energy::Common::EfficiencyPoint(7.0, 0.79);
-    EfficiencyCurve[8] = Energy::Common::EfficiencyPoint(8.0, 0.55);
+    std::vector<Energy::Common::EfficiencyPoint>
+        temp {Energy::Common::EfficiencyPoint(0.0, 0.00),
+              Energy::Common::EfficiencyPoint(1.0, 0.30),
+              Energy::Common::EfficiencyPoint(2.0, 0.40),
+              Energy::Common::EfficiencyPoint(3.0, 0.52),
+              Energy::Common::EfficiencyPoint(4.0, 0.65),
+              Energy::Common::EfficiencyPoint(5.0, 0.82),
+              Energy::Common::EfficiencyPoint(6.0, 0.88),
+              Energy::Common::EfficiencyPoint(7.0, 0.79),
+              Energy::Common::EfficiencyPoint(8.0, 0.55)};
 
+    EfficiencyCurve = temp;
     EfficiencyCurve.resize(9);
 }
 
@@ -156,11 +158,11 @@ float GetMeasurement()
 void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMeas_NodePower)
 {
     Energy::Ops::Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
-    
+
     while (true) {
         // Modify the measurement data to be written here
         sampleMeas_NodePower.Value(GetMeasurement());
-        
+
         // Write the measurement data
         WriterMeas_NodePower.write(sampleMeas_NodePower);
     }
@@ -171,7 +173,7 @@ void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMe
 * math used in a given system will probably vary, but something like this should be appropriate. The goal of this
 * particular math is to force the generator to take over at some point when SOC is below 20% and for the battery to
 * take over when SOC goes above 80%.
-* 
+*
 * This is incredibly simple for the sample Generator. In reality strength could also include effects such as time of
 * use or time of day restrictions.
 */
@@ -238,7 +240,7 @@ void publisher_main(int domain_id)
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -314,7 +316,7 @@ void publisher_main(int domain_id)
             }
         }
     );
-    
+
     /* Create Read Conditions */
     // We are using a read condition for the VF_Device_Active because we have different behavior based on whether or
     // not the device is becoming a VF_Device or passing off being a VF device.
@@ -337,7 +339,7 @@ void publisher_main(int domain_id)
     );
     // Create Sample objects for datawriters (except for Meas_NodePower, which is handled in another thread)
     InitializeEfficiencyCurve();
-    Energy::Ops::Info_Generator sampleInfo_Generator(DeviceID, NodeID, MaxLoad, MaxGeneration, EfficiencyCurve, 
+    Energy::Ops::Info_Generator sampleInfo_Generator(DeviceID, NodeID, MaxLoad, MaxGeneration, EfficiencyCurve,
         std::chrono::duration_cast<std::chrono::duration<uint32_t>>(RampUpTime).count());
     Energy::Common::CNTL_Single_float32 sampleControl_Power(DeviceID, DeviceID, 0.0);
 
@@ -354,7 +356,7 @@ void publisher_main(int domain_id)
     StatusConditionControl_Power.enabled_statuses(
         dds::core::status::StatusMask::liveliness_changed());
     // Lambda functions for the status conditions
-    // If there is a liveliness change for device control, 
+    // If there is a liveliness change for device control,
     StatusConditionControl_Device->handler(
         [&ReaderControl_Device](dds::core::cond::Condition condition) {
             dds::core::status::StatusMask status_mask = ReaderControl_Device.status_changes();

@@ -47,9 +47,11 @@ void BalanceConnected(
     // Add up all of the power
     float powerSum = 0.0;
     for (auto meas : ReaderMeas_NodePower.read()) {
-        if (meas.info().valid())
+        if (meas.info().valid() && meas.data().Device() != InterconnectID) {
             powerSum += meas.data().Value();
+        }
     }
+
     // Take the result and set the interconnect power
     auto sample = Energy::Common::CNTL_Single_float32(InterconnectID, DeviceID, powerSum);
     WriterControl_Power.write(sample);
@@ -94,7 +96,7 @@ void publisher_main(int domain_id)
     qos_participant << entityName;
 
     // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id);
+    dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
     Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
@@ -111,7 +113,7 @@ void publisher_main(int domain_id)
     qos_control_power << dds::core::policy::OwnershipStrength(200);
     // Used to control setpoints for ES, Generator, and PV
     DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Power(publisher, TopicControl_Power, qos_control_power);
-    
+
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
 
@@ -125,7 +127,7 @@ void publisher_main(int domain_id)
     // Gets commands from the viz on Microgrid operations
     DataReader<Energy::Ops::Status_Microgrid> ReaderStatus_Microgrid(subscriber, TopicStatus_Microgrid,
         QosProvider::Default().datareader_qos("EnergyCommsLibrary::Status"));
-    
+
     auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED; // This is the reasonable default
 
     const std::vector<std::string> query_parameters = { "'" + OptimizerID + "'" };
