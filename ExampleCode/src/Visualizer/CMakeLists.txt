@@ -50,8 +50,6 @@ add_executable(Visualizer
   "${CMAKE_CURRENT_SOURCE_DIR}/main.cxx"
   EnergyComms.cxx
   EnergyCommsPlugin.cxx
-  listeners.hpp
-  listeners.cxx
   window.hpp
   window.cxx
   )
