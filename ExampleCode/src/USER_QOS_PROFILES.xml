@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- 
+<!--
 Description
 XML QoS Profile for EnergyComms
 
@@ -13,21 +13,21 @@ under no obligation to maintain or support the software. RTI shall not be
 liable for any incidental or consequential damages arising out of the use
 or inability to use the software.
 
-The QoS configuration of the DDS entities in the generated example is loaded 
+The QoS configuration of the DDS entities in the generated example is loaded
 from this file.
 
 This file is used only when it is in the current working directory or when the
 environment variable NDDS_QOS_PROFILES is defined and points to this file.
 
-The profile in this file inherits from the builtin QoS profile 
-BuiltinQosLib::Generic.StrictReliable. That profile, along with all of the 
-other built-in QoS profiles can be found in the 
-BuiltinProfiles.documentationONLY.xml file located in the 
+The profile in this file inherits from the builtin QoS profile
+BuiltinQosLib::Generic.StrictReliable. That profile, along with all of the
+other built-in QoS profiles can be found in the
+BuiltinProfiles.documentationONLY.xml file located in the
 $NDDSHOME/resource/xml/ directory.
 
-You may use any of these QoS configurations in your application simply by 
-referring to them by the name shown in the 
-BuiltinProfiles.documentationONLY.xml file and listed below: 
+You may use any of these QoS configurations in your application simply by
+referring to them by the name shown in the
+BuiltinProfiles.documentationONLY.xml file and listed below:
 
 * Library "BuiltinQosLib":
 ** Baseline
@@ -113,9 +113,9 @@ QoS Snippets that set some specific features or configurations.
 You should not edit the file BuiltinProfiles.documentationONLY.xml directly.
 However, if you wish to modify any of the values in a built-in profile, the
 recommendation is to create a profile of your own and inherit from the built-in
-profile you wish to modify. The NDDS_QOS_PROFILES.example.xml file (contained in 
+profile you wish to modify. The NDDS_QOS_PROFILES.example.xml file (contained in
 the same directory as the BuiltinProfiles.documentationONLY.xml file) shows how
-to inherit from the built-in profiles. 
+to inherit from the built-in profiles.
 
 For more information about XML QoS Profiles see the "Configuring QoS with
 XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
@@ -145,9 +145,6 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
               <sec>2</sec>
             </duration>
           </lifespan>
-          <ownership>
-            <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
-          </ownership>
           <deadline>
             <period>
               <sec>1</sec>
@@ -161,9 +158,6 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
           </liveliness>
         </datawriter_qos>
         <datareader_qos>
-          <ownership>
-            <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
-          </ownership>
           <deadline>
             <period>
               <sec>1</sec>
@@ -177,6 +171,17 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
           </liveliness>
         </datareader_qos>
       </qos_profile>
-      
+      <qos_profile name="VF" base_name="EnergyCommsLibrary::Control">
+          <datawriter_qos>
+              <ownership>
+                  <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
+              </ownership>
+          </datawriter_qos>
+          <datareader_qos>
+              <ownership>
+                  <kind>EXCLUSIVE_OWNERSHIP_QOS</kind>
+              </ownership>
+          </datareader_qos>
+      </qos_profile>
     </qos_library>
 </dds>

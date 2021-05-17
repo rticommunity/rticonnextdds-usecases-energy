@@ -33,6 +33,15 @@ load (smart or dumb) to a microgrid.
 
 #include "EnergyComms.hpp"
 
+using namespace dds::core;
+using namespace dds::topic;
+using namespace dds::pub;
+using namespace dds::sub;
+
+using namespace Energy::Ops;
+using namespace Energy::Common;
+using namespace Energy::Enums;
+
 const std::string DeviceID = "PowerFlowSim";
 const std::string OptimizerID = "SampleOpt";
 const std::string InterconnectID = "SampleInterconnect";
@@ -75,7 +84,7 @@ void BalanceIsland(
     float powerSum = 0.0;
     for (auto meas : ReaderMeas_NodePower.read()) {
         if (meas.info().valid() && meas.data().Device() != VFDeviceID)
-            powerSum += meas.data().Value();
+            powerSum -= meas.data().Value();
     }
 
     // Take the result and set the VF Device power
@@ -85,47 +94,44 @@ void BalanceIsland(
 
 void publisher_main(int domain_id)
 {
-    using namespace dds::core;
-    using namespace dds::topic;
-    using namespace dds::pub;
-    using namespace dds::sub;
-
     // Create the Domain Particimant QOS to set Entity Name
-    dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
+    auto qos_default = dds::core::QosProvider::Default();
+    auto qos_participant = qos_default.participant_qos();
     rti::core::policy::EntityName entityName("Sim-" + DeviceID);
     qos_participant << entityName;
+    // Set Ownershipstrength for writers
+    auto qos_control = qos_default.datawriter_qos("EnergyCommsLibrary::Control");
+    qos_control << dds::core::policy::OwnershipStrength(200000);
 
     // Create a DomainParticipant with default Qos
     dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
-    Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
-    Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
-    Topic<Energy::Ops::VF_Device_Active> TopicVF_Device_Active(participant, "VF_Device_Active");
-    Topic<Energy::Ops::Status_Microgrid> TopicStatus_Microgrid(participant, "Status_Microgrid");
+    Topic<Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
+    Topic<CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
+    Topic<VF_Device_Active> TopicVF_Device_Active(participant, "VF_Device_Active");
+    Topic<Status_Microgrid> TopicStatus_Microgrid(participant, "Status_Microgrid");
 
     // Create Publisher
     Publisher publisher(participant);
 
     /* Create DataWriters with Qos */
-    // Set the ownership strength of the Control Power to 200
-    dds::pub::qos::DataWriterQos qos_control_power = QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control");
-    qos_control_power << dds::core::policy::OwnershipStrength(200);
     // Used to control setpoints for ES, Generator, and PV
-    DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Power(publisher, TopicControl_Power, qos_control_power);
+    DataWriter<CNTL_Single_float32> WriterControl_Power(
+        publisher, TopicControl_Power, qos_control);
 
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
 
     /* Create DataReaders with Qos */
     // Gets power devices are consuming or supplying
-    DataReader<Energy::Ops::Meas_NodePower> ReaderMeas_NodePower(subscriber, TopicMeas_NodePower,
+    DataReader<Meas_NodePower> ReaderMeas_NodePower(subscriber, TopicMeas_NodePower,
         QosProvider::Default().datareader_qos("EnergyCommsLibrary::Measurement"));
    // Gets the active VF Device based on ownership strength
-    DataReader<Energy::Ops::VF_Device_Active> ReaderVF_Device_Active(subscriber, TopicVF_Device_Active,
+    DataReader<VF_Device_Active> ReaderVF_Device_Active(subscriber, TopicVF_Device_Active,
         QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
     // Gets commands from the viz on Microgrid operations
-    DataReader<Energy::Ops::Status_Microgrid> ReaderStatus_Microgrid(subscriber, TopicStatus_Microgrid,
+    DataReader<Status_Microgrid> ReaderStatus_Microgrid(subscriber, TopicStatus_Microgrid,
         QosProvider::Default().datareader_qos("EnergyCommsLibrary::Status"));
 
     auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED; // This is the reasonable default

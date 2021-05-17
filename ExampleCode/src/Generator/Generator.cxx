@@ -262,7 +262,7 @@ void publisher_main(int domain_id)
     dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus_Device(publisher, TopicStatus_Device,
         dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Status"));
     dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_Device(publisher, TopicVF_Device,
-        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control"));
+        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::VF"));
     // Set the ownership strength of the Control Load to 0 to start with
     dds::pub::qos::DataWriterQos qos_control_load = dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control");
     qos_control_load << dds::core::policy::OwnershipStrength(0);

@@ -42,6 +42,7 @@ MyWindow::MyWindow(
     set_default_size( 800, 600 );  // Set default size, width and height, in pixels.
     set_border_width( 10 );
     buildUI();
+    initDds();
     thread(DdsThread, this).detach();     // Create DDS Thread
     add_events (Gdk::KEY_PRESS_MASK);
     show_all_children();
@@ -49,29 +50,67 @@ MyWindow::MyWindow(
 
 MyWindow::~MyWindow() {}
 
-void MyWindow::DdsThread(MyWindow * main) {
+void MyWindow::initDds() {
     // Create the Domain Participant QOS to set Entity Name
     auto qos_default = dds::core::QosProvider::Default();
-    dds::domain::qos::DomainParticipantQos qos_participant =
-        qos_default.participant_qos();
+    auto qos_participant = qos_default.participant_qos();
     rti::core::policy::EntityName entityName("Visualizer");
     qos_participant << entityName;
+    // Set Ownershipstrength for writers
+    auto qos_control = qos_default.datawriter_qos("EnergyCommsLibrary::Control");
+    qos_control << dds::core::policy::OwnershipStrength(100000);
 
     // create DDS participant
-    DomainParticipant participant(0, qos_participant);
+    participant = new DomainParticipant(0, qos_participant);
+
+    TopicControl_Microgrid = new Topic<Energy::Ops::Status_Microgrid>(
+        *(participant), "Control_Microgrid");
+    TopicControl_Device = new Topic<Energy::Ops::Control_Device>(
+        *(participant), "Control_Device");
+    TopicControl_Irradiance = new Topic<Energy::Common::CNTL_Single_float32>(
+        *(participant), "Control_Irradiance");
+    TopicControl_SOC = new Topic<Energy::Common::CNTL_Single_float32>(
+        *(participant), "Control_SOC");
+    TopicControl_Power = new Topic<Energy::Common::CNTL_Single_float32>(
+        *(participant), "Control_Power");
+
+    publisher = new Publisher(*(participant));
+
+    WriterControl_Microgrid = new DataWriter<Energy::Ops::Status_Microgrid>(
+        *(publisher), *(TopicControl_Microgrid), qos_control);
+    WriterControl_Device = new DataWriter<Energy::Ops::Control_Device>(
+        *(publisher), *(TopicControl_Device), qos_control);
+    WriterControl_Irradiance = new DataWriter<Energy::Common::CNTL_Single_float32>(
+        *(publisher), *(TopicControl_Irradiance), qos_control);
+    WriterControl_SOC = new DataWriter<Energy::Common::CNTL_Single_float32>(
+        *(publisher), *(TopicControl_SOC), qos_control);
+    WriterControl_Power = new DataWriter<Energy::Common::CNTL_Single_float32>(
+        *(publisher), *(TopicControl_Power), qos_control);
+}
+
+void MyWindow::DdsThread(MyWindow * main) {
+    auto qos_default = dds::core::QosProvider::Default();
 
     // Create Topics -- and automatically register the types
-    Topic<Energy::Ops::Info_Battery> TopicInfo_Battery(participant, "Info_Battery");
-    Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
-    Topic<Energy::Common::MMXU_Single_float32> TopicMeas_SOC(participant, "Meas_SOC");
-    Topic<Energy::Ops::Info_Resource> TopicInfo_Resource(participant, "Info_Resource");
-    Topic<Energy::Ops::Info_Generator> TopicInfo_Generator(participant, "Info_Generator");
-    Topic<Energy::Ops::Status_Device> TopicStatus_Device(participant, "Status_Device");
-    Topic<Energy::Ops::Status_Microgrid> TopicStatus_Microgrid(participant, "Status_Microgrid");
-    Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
+    Topic<Energy::Ops::Info_Battery> TopicInfo_Battery(
+        *(main->participant), "Info_Battery");
+    Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(
+        *(main->participant), "Meas_NodePower");
+    Topic<Energy::Common::MMXU_Single_float32> TopicMeas_SOC(
+        *(main->participant), "Meas_SOC");
+    Topic<Energy::Ops::Info_Resource> TopicInfo_Resource(
+        *(main->participant), "Info_Resource");
+    Topic<Energy::Ops::Info_Generator> TopicInfo_Generator(
+        *(main->participant), "Info_Generator");
+    Topic<Energy::Ops::Status_Device> TopicStatus_Device(
+        *(main->participant), "Status_Device");
+    Topic<Energy::Ops::Status_Microgrid> TopicStatus_Microgrid(
+        *(main->participant), "Status_Microgrid");
+    /*Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(
+     *(main->participant), "Control_Power");*/
 
     // Create Subscriber
-    Subscriber subscriber(participant);
+    Subscriber subscriber(*(main->participant));
 
     // Get QOS for info, status, and measurement
     auto qos_info = qos_default.datareader_qos("EnergyCommsLibrary::Info");
@@ -242,6 +281,12 @@ void MyWindow::DdsThread(MyWindow * main) {
                     std::ostringstream streamObj;
                     streamObj << status_map[sample.data().MicrogridStatus().underlying()];
                     main->textbuffer_main_status->set_text(streamObj.str());
+                    if (sample.data().MicrogridStatus().underlying() ==
+                        MicrogridStatus::inner_enum::CONNECTED)
+                        main->button_main_control->set_label(Glib::ustring("Island"));
+                    else if (sample.data().MicrogridStatus().underlying() ==
+                             MicrogridStatus::inner_enum::ISLANDED)
+                        main->button_main_control->set_label(Glib::ustring("Resync"));
                 }
             }
         });
@@ -337,14 +382,47 @@ void MyWindow::DdsThread(MyWindow * main) {
 } // MyWindow::buildUI
 
 
-void MyWindow::button_main_control_clicked() {}
+void MyWindow::button_main_control_clicked() {
+    Energy::Ops::Status_Microgrid sample(
+        "SampleOpt", Energy::Enums::MicrogridStatus::REQUEST_ISLAND);
+    if (button_main_control->get_label() == Glib::ustring("Island"))
+        WriterControl_Microgrid->write(sample);
+    else if (button_main_control->get_label() == Glib::ustring("Resync")) {
+        sample.MicrogridStatus(Energy::Enums::MicrogridStatus::REQUEST_RESYNC);
+        WriterControl_Microgrid->write(sample);
+    }
+}
 
-void MyWindow::button_sim_set_soc_clicked(){}
+void MyWindow::button_sim_set_soc_clicked(){
+    Energy::Common::CNTL_Single_float32 sample(
+        "SampleES", "Visualizer",
+        stof(entry_sim_set_soc->get_buffer()->get_text().raw()));
+    WriterControl_SOC->write(sample);
+}
 
-void MyWindow::button_sim_set_load_clicked() {}
+void MyWindow::button_sim_set_load_clicked() {
+    Energy::Common::CNTL_Single_float32 sample(
+        "SampleLoad", "Visualizer",
+        stof(entry_sim_set_load->get_buffer()->get_text().raw()));
+    WriterControl_Power->write(sample);
+}
 
-void MyWindow::button_sim_set_irradiance_clicked() {}
+void MyWindow::button_sim_set_irradiance_clicked() {
+    Energy::Common::CNTL_Single_float32 sample(
+        "SamplePV", "Visualizer",
+        stof(entry_sim_set_irradiance->get_buffer()->get_text().raw()));
+    WriterControl_Irradiance->write(sample);
+}
 
-void MyWindow::button_sim_set_curtailment_clicked() {}
+void MyWindow::button_sim_set_curtailment_clicked() {
+    Energy::Common::CNTL_Single_float32 sample(
+        "SamplePV", "Visualizer",
+        stof(entry_sim_set_curtailment->get_buffer()->get_text().raw()));
+    WriterControl_Power->write(sample);
+}
 
-void MyWindow::button_sim_trip_clicked() {}
+void MyWindow::button_sim_trip_clicked() {
+    Energy::Ops::Control_Device sample(
+        "SampleInterconnect", "Visualizer", Energy::Enums::DeviceControl::DISCONNECT);
+    WriterControl_Device->write(sample);
+}

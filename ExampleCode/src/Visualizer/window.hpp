@@ -4,7 +4,6 @@
 #include <dds/dds.hpp>
 
 #include "EnergyComms.hpp"
-#include "listeners.hpp"
 
 class MyWindow : public Gtk::Window {
     Glib::RefPtr<Gtk::Application> & app_;
@@ -23,7 +22,25 @@ class MyWindow : public Gtk::Window {
         textbuffer_main_status, textbuffer_main_power;
 
     void buildUI();
+    void initDds();
     static void DdsThread(MyWindow*);
+
+private:
+    dds::domain::DomainParticipant *participant;
+
+    dds::topic::Topic<Energy::Ops::Status_Microgrid> *TopicControl_Microgrid;
+    dds::topic::Topic<Energy::Ops::Control_Device> *TopicControl_Device;
+    dds::topic::Topic<Energy::Common::CNTL_Single_float32> *TopicControl_Irradiance;
+    dds::topic::Topic<Energy::Common::CNTL_Single_float32> *TopicControl_SOC;
+    dds::topic::Topic<Energy::Common::CNTL_Single_float32> *TopicControl_Power;
+
+    dds::pub::Publisher *publisher;
+
+    dds::pub::DataWriter<Energy::Ops::Status_Microgrid> *WriterControl_Microgrid;
+    dds::pub::DataWriter<Energy::Ops::Control_Device> *WriterControl_Device;
+    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> *WriterControl_Irradiance;
+    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> *WriterControl_SOC;
+    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> *WriterControl_Power;
 
 protected:
     // signal handlers
