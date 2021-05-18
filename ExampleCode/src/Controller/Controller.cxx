@@ -53,14 +53,15 @@ using namespace dds::pub;
 using namespace dds::sub;
 
 using namespace std::chrono;
+using std::ref;
 
 /* IslandOperation
 * This is the root function called by IslandMicrogrid and UnintentionalIsland
 */
-void IslandOperation( bool Immediate, DataReader<VF_Device> ReaderVF_Device,
-                      DataReader<Info_Generator> ReaderInfo_Generator,
-                      DataWriter<Control_Device> WriterControl_Device,
-                      DataWriter<VF_Device_Active> WriterVF_Device_Active)
+void IslandOperation( bool Immediate, DataReader<VF_Device> &ReaderVF_Device,
+                      DataReader<Info_Generator> &ReaderInfo_Generator,
+                      DataWriter<Control_Device> &WriterControl_Device,
+                      DataWriter<VF_Device_Active> &WriterVF_Device_Active)
 {
     // Create the Samples for Device Control and VF Active device
     auto sampleControlDevice = Control_Device(
@@ -119,19 +120,20 @@ void IslandOperation( bool Immediate, DataReader<VF_Device> ReaderVF_Device,
 * unintentional islanding operations. The only difference is whether or not the
 * transition happens immediately or after a short wait.
 */
-void IslandMicrogrid( DataReader<VF_Device> ReaderVF_Device,
-                      DataReader<Info_Generator> ReaderInfo_Generator,
-                      DataWriter<Control_Device> WriterControl_Device,
-                      DataWriter<VF_Device_Active> WriterVF_Device_Active,
-                      DataWriter<Status_Microgrid> WriterStatus_Microgrid)
+void IslandMicrogrid( DataReader<VF_Device> &ReaderVF_Device,
+                      DataReader<Info_Generator> &ReaderInfo_Generator,
+                      DataWriter<Control_Device> &WriterControl_Device,
+                      DataWriter<VF_Device_Active> &WriterVF_Device_Active,
+                      DataWriter<Status_Microgrid> &WriterStatus_Microgrid)
 {
     auto sampleStatus_Microgrid = Status_Microgrid(
         OptimizerID, MicrogridStatus::REQUEST_ISLAND);
     WriterStatus_Microgrid.write(sampleStatus_Microgrid);
 
-    auto ThreadIsland = std::thread(IslandOperation, false, ReaderVF_Device,
-                                    ReaderInfo_Generator, WriterControl_Device,
-                                    WriterVF_Device_Active);
+    auto ThreadIsland =
+        std::thread(IslandOperation, false, ref(ReaderVF_Device),
+                    ref(ReaderInfo_Generator), ref(WriterControl_Device),
+                    ref(WriterVF_Device_Active));
 
     // Here is where code would be called to make the microgrid ready for
     // off-grid operation if the load and generation are not adequately sized.
@@ -151,19 +153,20 @@ void IslandMicrogrid( DataReader<VF_Device> ReaderVF_Device,
 * incapable of this operation, this function should be utilized.
 */
 void UnintentionalIsland(
-    DataReader<Energy::Ops::VF_Device> ReaderVF_Device,
-    DataReader<Energy::Ops::Info_Generator> ReaderInfo_Generator,
-    DataWriter<Energy::Ops::Control_Device> WriterControl_Device,
-    DataWriter<Energy::Ops::VF_Device_Active> WriterVF_Device_Active,
-    DataWriter<Energy::Ops::Status_Microgrid> WriterStatus_Microgrid)
+    DataReader<Energy::Ops::VF_Device> &ReaderVF_Device,
+    DataReader<Energy::Ops::Info_Generator> &ReaderInfo_Generator,
+    DataWriter<Energy::Ops::Control_Device> &WriterControl_Device,
+    DataWriter<Energy::Ops::VF_Device_Active> &WriterVF_Device_Active,
+    DataWriter<Energy::Ops::Status_Microgrid> &WriterStatus_Microgrid)
 {
     auto sampleStatus_Microgrid =
         Status_Microgrid(OptimizerID, MicrogridStatus::ISLANDED);
     WriterStatus_Microgrid.write(sampleStatus_Microgrid);
 
     auto ThreadIsland =
-        std::thread(IslandOperation, true, ReaderVF_Device, ReaderInfo_Generator,
-                    WriterControl_Device, WriterVF_Device_Active);
+        std::thread(IslandOperation, true, ref(ReaderVF_Device),
+                    ref(ReaderInfo_Generator), ref(WriterControl_Device),
+                    ref(WriterVF_Device_Active));
 
     // Here is where code would be called to perform emergency load shedding or
     // other operations to maintain stability
@@ -181,10 +184,10 @@ void UnintentionalIsland(
 * away from VF.
 */
 void Resynchronize(
-    DataReader<Status_Device> ReaderStatus_Device,
-    DataWriter<Control_Device> WriterControl_Device,
-    DataWriter<VF_Device_Active> WriterVF_Device_Active,
-    DataWriter<Status_Microgrid> WriterStatus_Microgrid)
+    DataReader<Status_Device> &ReaderStatus_Device,
+    DataWriter<Control_Device> &WriterControl_Device,
+    DataWriter<VF_Device_Active> &WriterVF_Device_Active,
+    DataWriter<Status_Microgrid> &WriterStatus_Microgrid)
 {
     bool waiting = true; // variable that allows the while loop to exit
 
@@ -255,13 +258,13 @@ void Resynchronize(
 */
 void ProcessVizCommand(
     MicrogridStatus command,
-    DataReader<VF_Device> ReaderVF_Device,
-    DataReader<Info_Generator> ReaderInfo_Generator,
-    DataReader<Status_Device> ReaderStatus_Device,
-    DataWriter<Control_Device> WriterControl_Device,
-    DataWriter<VF_Device_Active> WriterVF_Device_Active,
-    DataWriter<Status_Microgrid> WriterStatus_Microgrid,
-    DataReader<Status_Microgrid> ReaderStatus_Microgrid)
+    DataReader<VF_Device> &ReaderVF_Device,
+    DataReader<Info_Generator> &ReaderInfo_Generator,
+    DataReader<Status_Device> &ReaderStatus_Device,
+    DataWriter<Control_Device> &WriterControl_Device,
+    DataWriter<VF_Device_Active> &WriterVF_Device_Active,
+    DataWriter<Status_Microgrid> &WriterStatus_Microgrid,
+    DataReader<Status_Microgrid> &ReaderStatus_Microgrid)
 {
     auto currentStatus = MicrogridStatus::CONNECTED; // This is the reasonable default
 
@@ -279,15 +282,17 @@ void ProcessVizCommand(
     switch (currentStatus) {
         case MicrogridStatus::CONNECTED:
             if (MicrogridStatus::REQUEST_ISLAND == command.underlying())
-                std::thread(IslandMicrogrid, ReaderVF_Device,
-                            ReaderInfo_Generator, WriterControl_Device,
-                            WriterVF_Device_Active, WriterStatus_Microgrid).detach();
+                std::thread(IslandMicrogrid, ref(ReaderVF_Device),
+                            ref(ReaderInfo_Generator), ref(WriterControl_Device),
+                            ref(WriterVF_Device_Active),
+                            ref(WriterStatus_Microgrid)).detach();
             break;
         case MicrogridStatus::ISLANDED:
             if (MicrogridStatus::REQUEST_RESYNC == command.underlying())
-                std::thread(Resynchronize, ReaderStatus_Device,
-                            WriterControl_Device, WriterVF_Device_Active,
-                            WriterStatus_Microgrid).detach();
+                std::thread(Resynchronize, ref(ReaderStatus_Device),
+                            ref(WriterControl_Device),
+                            ref(WriterVF_Device_Active),
+                            ref(WriterStatus_Microgrid)).detach();
             break;
         default:
             break;
@@ -300,12 +305,12 @@ void ProcessVizCommand(
 * to the microgrid state to determine if a trip event has occurred.
 */
 void CheckTrip(
-    DataReader<Status_Microgrid> ReaderStatus_Microgrid,
-    DataReader<VF_Device> ReaderVF_Device,
-    DataReader<Info_Generator> ReaderInfo_Generator,
-    DataWriter<Control_Device> WriterControl_Device,
-    DataWriter<VF_Device_Active> WriterVF_Device_Active,
-    DataWriter<Status_Microgrid> WriterStatus_Microgrid)
+    DataReader<Status_Microgrid> &ReaderStatus_Microgrid,
+    DataReader<VF_Device> &ReaderVF_Device,
+    DataReader<Info_Generator> &ReaderInfo_Generator,
+    DataWriter<Control_Device> &WriterControl_Device,
+    DataWriter<VF_Device_Active> &WriterVF_Device_Active,
+    DataWriter<Status_Microgrid> &WriterStatus_Microgrid)
 {
     auto currentStatus = MicrogridStatus::CONNECTED; // This is the reasonable default
 
@@ -322,9 +327,9 @@ void CheckTrip(
 
     switch (currentStatus) {
     case MicrogridStatus::CONNECTED:
-        std::thread(UnintentionalIsland, ReaderVF_Device, ReaderInfo_Generator,
-                    WriterControl_Device, WriterVF_Device_Active,
-                    WriterStatus_Microgrid).detach();
+        std::thread(UnintentionalIsland, ref(ReaderVF_Device),
+                    ref(ReaderInfo_Generator), ref(WriterControl_Device),
+                    ref(WriterVF_Device_Active), ref(WriterStatus_Microgrid)).detach();
         break;
     default:
         break;
@@ -345,14 +350,15 @@ void CheckTrip(
 * battery SOC.
 */
 void Optimize(
-    DataReader<Status_Microgrid> ReaderStatus_Microgrid,
-    DataReader<Info_Generator> ReaderInfo_Generator,
-    DataReader<Info_Battery> ReaderInfo_Battery,
-    DataReader<VF_Device> ReaderVF_Device,
-    DataReader<Meas_NodePower> ReaderMeas_NodePower,
-    DataReader<MMXU_Single_float32> ReaderMeas_SOC,
-    DataWriter<CNTL_Single_float32> WriterControl_Power,
-    DataWriter<VF_Device_Active> WriterVF_Device_Active)
+    DataReader<Status_Microgrid> &ReaderStatus_Microgrid,
+    DataReader<Info_Generator> &ReaderInfo_Generator,
+    DataReader<Info_Battery> &ReaderInfo_Battery,
+    DataReader<VF_Device> &ReaderVF_Device,
+    DataReader<Meas_NodePower> &ReaderMeas_NodePower,
+    DataReader<MMXU_Single_float32> &ReaderMeas_SOC,
+    DataWriter<CNTL_Single_float32> &WriterControl_Power,
+    DataWriter<VF_Device_Active> &WriterVF_Device_Active,
+    DataWriter<Control_Device> &WriterControl_Device)
 {
     const std::vector<std::string> query_parameters = { "'" + OptimizerID + "'" };
     dds::sub::cond::QueryCondition query_condition(
@@ -371,7 +377,7 @@ void Optimize(
     while (true) {
         for (auto sample :
                  ReaderStatus_Microgrid.select().condition(query_condition).read()) {
-            if (sample.info().valid() && sample.data().Device() == InterconnectID)
+            if (sample.info().valid() && sample.data().Device() == OptimizerID)
                 currentStatus = sample.data().MicrogridStatus().underlying();
         }
         std::cout << "Current Status: " << currentStatus << std::endl;
@@ -615,11 +621,12 @@ void publisher_main(int domain_id)
                 condition(condition_as_qc).take();
             for (auto sample : samples)
                 if (sample.info().valid())
-                    std::thread(ProcessVizCommand, sample.data().MicrogridStatus(),
-                                ReaderVF_Device, ReaderInfo_Generator,
-                                ReaderStatus_Device, WriterControl_Device,
-                                WriterVF_Device_Active, WriterStatus_Microgrid,
-                                ReaderStatus_Microgrid).detach();
+                    std::thread(
+                        ProcessVizCommand, sample.data().MicrogridStatus(),
+                        ref(ReaderVF_Device), ref(ReaderInfo_Generator),
+                        ref(ReaderStatus_Device), ref(WriterControl_Device),
+                        ref(WriterVF_Device_Active), ref(WriterStatus_Microgrid),
+                        ref(ReaderStatus_Microgrid)).detach();
         }
     );
     // Query Condition for watching if the Interconnect trips
@@ -637,19 +644,20 @@ void publisher_main(int domain_id)
                 if (sample.info().valid() &&
                     ConnectionStatus::DISCONNECTED ==
                     sample.data().ConnectionStatus().underlying())
-                    std::thread(CheckTrip, ReaderStatus_Microgrid,
-                                ReaderVF_Device, ReaderInfo_Generator,
-                                WriterControl_Device, WriterVF_Device_Active,
-                                WriterStatus_Microgrid).detach();
+                    std::thread(
+                        CheckTrip, ref(ReaderStatus_Microgrid),
+                        ref(ReaderVF_Device), ref(ReaderInfo_Generator),
+                        ref(WriterControl_Device), ref(WriterVF_Device_Active),
+                        ref(WriterStatus_Microgrid)).detach();
         }
     );
 
     // Launch thread for continuous optimization
-    std::thread threadOptimization(&Optimize, ReaderStatus_Microgrid,
-                                   ReaderInfo_Generator, ReaderInfo_Battery,
-                                   ReaderVF_Device,ReaderMeas_NodePower,
-                                   ReaderMeas_SOC, WriterControl_Power,
-                                   WriterVF_Device_Active);
+    std::thread threadOptimization(
+        &Optimize, ref(ReaderStatus_Microgrid), ref(ReaderInfo_Generator),
+        ref(ReaderInfo_Battery), ref(ReaderVF_Device), ref(ReaderMeas_NodePower),
+        ref(ReaderMeas_SOC), ref(WriterControl_Power),
+        ref(WriterVF_Device_Active), ref(WriterControl_Device));
 
     // Turn on all devices
     Control_Device sampleControlDevice(

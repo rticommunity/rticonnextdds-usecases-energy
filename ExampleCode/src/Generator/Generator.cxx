@@ -35,8 +35,16 @@
 
 #include "EnergyComms.hpp"
 
+using namespace dds::core;
+using namespace dds::topic;
+using namespace dds::pub;
+using namespace dds::sub;
+
+using namespace Energy::Ops;
+using namespace Energy::Common;
+using namespace Energy::Enums;
+
 float SimMeasurement = 0;
-bool connected = true;
 bool ActiveVF = false;
 Energy::Common::Timestamp SwitchTime;
 const std::string DeviceID = "SampleGen";
@@ -44,15 +52,15 @@ const std::string NodeID = "004";
 const float MaxLoad = 0.0;
 const float MaxGeneration = 8.0;
 const std::chrono::duration<float> RampUpTime = std::chrono::seconds(10);
-rti::core::bounded_sequence<Energy::Common::EfficiencyPoint, 1024> EfficiencyCurve;
-Energy::Enums::ConnectionStatus ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
-Energy::Enums::OperationStatus OperationStatus = Energy::Enums::OperationStatus::DISABLED_OFF;
+rti::core::bounded_sequence<EfficiencyPoint, 1024> EfficiencyCurve;
+ConnectionStatus connectionStatus = ConnectionStatus::CONNECTED;
+OperationStatus operationStatus = OperationStatus::DISABLED_OFF;
 
 const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
 /* InitializeEfficiencyCureve
-* We are puting a simple efficiency curve into the example. This would probably have more points and could even change
-* based on coditions.
+* We are puting a simple efficiency curve into the example. This would probably
+* have more points and could even change based on conditions.
 */
 void InitializeEfficiencyCurve()
 {
@@ -72,11 +80,12 @@ void InitializeEfficiencyCurve()
 }
 
 /* StatusMonitor
-* In this example we are watching for the internal status to change, and when it does to publish a new status.
+* In this example we are watching for the internal status to change, and when it
+* does to publish a new status.
 */
-void StatusMonitor(dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus_Device)
+void StatusMonitor(DataWriter<Status_Device> WriterStatus_Device)
 {
-    Energy::Ops::Status_Device sample(DeviceID, ConnectionStatus, OperationStatus);
+    Status_Device sample(DeviceID, connectionStatus, operationStatus);
 
     //Perform initial status write
     WriterStatus_Device.write(sample);
@@ -84,9 +93,10 @@ void StatusMonitor(dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus
     while (true)
     {
         // When there is a change to the global variables, send out a new sample
-        if (sample.ConnectionStatus() != ConnectionStatus || sample.OperationStatus() != OperationStatus) {
-            sample.ConnectionStatus(ConnectionStatus);
-            sample.OperationStatus(OperationStatus);
+        if (sample.ConnectionStatus() != connectionStatus ||
+            sample.OperationStatus() != operationStatus) {
+            sample.ConnectionStatus(connectionStatus);
+            sample.OperationStatus(operationStatus);
             WriterStatus_Device.write(sample);
         }
         // When no change has occured, sleep for 100 ms
@@ -97,29 +107,29 @@ void StatusMonitor(dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus
 
 
 /* InterconnectControl
-* In this example we are responding to a command to connect or disconnect and changing the appropriate status.
+* In this example we are responding to a command to connect or disconnect and
+* changing the appropriate status.
 */
-void InterconnectControl(Energy::Enums::DeviceControl command)
+void InterconnectControl(DeviceControl command)
 {
-    //Here is where code would go to interface with the actual relay connecting the device to the grid. Based on its
-    //response, the corresponding status would be updated. If this is a lengthy process, then a thread should probably
-    //be spawned that would allow status updates to be sent out while letting the device process other incoming
-    //messages.
+    //Here is where code would go to interface with the actual relay connecting
+    // the device to the grid. Based on its response, the corresponding status
+    // would be updated. If this is a lengthy process, then a thread should
+    // probably be spawned that would allow status updates to be sent out while
+    // letting the device process other incoming messages.
 
     switch (command.underlying())
     {
-    case Energy::Enums::DeviceControl::CONNECT:
-        connected = true;
-        OperationStatus = Energy::Enums::OperationStatus::ENABLED_STARTING;
+    case DeviceControl::CONNECT:
+        operationStatus = OperationStatus::ENABLED_STARTING;
         // 10 second wait to simulate generator ramp-up
         std::this_thread::sleep_for(RampUpTime);
-        ConnectionStatus = Energy::Enums::ConnectionStatus::CONNECTED;
-        OperationStatus = Energy::Enums::OperationStatus::ENABLED_ON;
+        connectionStatus = ConnectionStatus::CONNECTED;
+        operationStatus = OperationStatus::ENABLED_ON;
         break;
-    case Energy::Enums::DeviceControl::DISCONNECT:
-        connected = false;
-        ConnectionStatus = Energy::Enums::ConnectionStatus::DISCONNECTED;
-        OperationStatus = Energy::Enums::OperationStatus::DISABLED_READY;
+    case DeviceControl::DISCONNECT:
+        connectionStatus = ConnectionStatus::DISCONNECTED;
+        operationStatus = OperationStatus::DISABLED_READY;
         break;
     default:
         break;
@@ -127,37 +137,42 @@ void InterconnectControl(Energy::Enums::DeviceControl command)
 }
 
 /* GetMeasurement
-* In this example we have a single measurement. This could be the case when the load is on a single phase or if the
-* only thing that needs to be returned (or is available) is the aggregate. This, along with the data model, would need
-* to be changed to pass information on a 3-phase system.
+* In this example we have a single measurement. This could be the case when the
+* load is on a single phase or if the only thing that needs to be returned (or
+* is available) is the aggregate. This, along with the data model, would need to
+* be changed to pass information on a 3-phase system.
 */
 float GetMeasurement()
 {
-    // Some sort of communication to the actual system would be here. In our case we're just going to pull from the
-    // simulated measurement variable
+    // Some sort of communication to the actual system would be here. In our
+    // case we're just going to pull from the simulated measurement variable
 
-    // We are adding a delay here to simulate the actual fetch of information from the system
-    std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 milliseconds
+    // We are adding a delay here to simulate the actual fetch of information
+    // from the system
+    std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 ms
     std::this_thread::sleep_for(timespan);
 
     float meas = SimMeasurement < MaxGeneration ? SimMeasurement : MaxGeneration;
     meas = meas > MaxLoad ? meas : MaxLoad;
 
-    if (connected)
+    if (connectionStatus == ConnectionStatus::CONNECTED &&
+        (operationStatus == OperationStatus::ENABLED_ON ||
+         operationStatus == OperationStatus::ENABLED_VF_ON))
         return meas;
     else
         return 0.0;
 }
 
 /* ContinuousWriter
-* In this example we are using a function in a seperate thread to continously publish measurement data. Depending on
-* whether or not other interfaces are thread safe additional semaphores or locks would need to be introduced when
-* accessing outside interfaces between multiple threads. We are not doing that here because the data being published
-* is simulated.
+* In this example we are using a function in a seperate thread to continuously
+* publish measurement data. Depending on whether or not other interfaces are
+* thread safe additional semaphores or locks would need to be introduced when
+* accessing outside interfaces between multiple threads. We are not doing that
+* here because the data being published is simulated.
 */
-void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMeas_NodePower)
+void ContinuousWriter(DataWriter<Meas_NodePower> WriterMeas_NodePower)
 {
-    Energy::Ops::Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
+    Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
 
     while (true) {
         // Modify the measurement data to be written here
@@ -169,31 +184,34 @@ void ContinuousWriter(dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMe
 }
 
 /* ContinuousVFStrength
-* This helps support VF device switching by having every device provide a relative strength as a VF device. The actual
-* math used in a given system will probably vary, but something like this should be appropriate. The goal of this
-* particular math is to force the generator to take over at some point when SOC is below 20% and for the battery to
-* take over when SOC goes above 80%.
+* This helps support VF device switching by having every device provide a
+* relative strength as a VF device. The actual math used in a given system will
+* probably vary, but something like this should be appropriate. The goal of this
+* particular math is to force the generator to take over at some point when SOC
+* is below 20% and for the battery to take over when SOC goes above 80%.
 *
-* This is incredibly simple for the sample Generator. In reality strength could also include effects such as time of
-* use or time of day restrictions.
+* This is incredibly simple for the sample Generator. In reality strength could
+* also include effects such as time of use or time of day restrictions.
 */
 void ContinuousVFStrength(dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_Device)
 {
-    Energy::Ops::VF_Device dev(DeviceID);
+    VF_Device dev(DeviceID);
     int32_t str;
     dds::pub::qos::DataWriterQos QosVF_Device = WriterVF_Device.qos();
 
     while (true) {
         if (ActiveVF)
-            str = 80 + MaxGeneration * 100; // This keeps the generator at a higher strength
+            // This keeps the generator at a higher strength during VF mode
+            str = 80 * MaxGeneration * 100;
         else
             str = 20 * MaxGeneration;
 
         QosVF_Device << dds::core::policy::OwnershipStrength(str);
+        std::cout << "Strength = " << str << "\n";
         WriterVF_Device.qos(QosVF_Device);
         WriterVF_Device.write(dev);
 
-        // We are adding a delay here of 1 second. In reality this is probably overkill
+        // We are adding a delay here of 500ms. In reality this is probably overkill
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
@@ -202,32 +220,44 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
 {
     using namespace std::chrono;
 
-    time_point<high_resolution_clock> targetTime(seconds(ts.Seconds()) + nanoseconds(ts.Fraction()));
+    time_point<high_resolution_clock> targetTime(seconds(ts.Seconds()) +
+                                                 nanoseconds(ts.Fraction()));
 
-    // Check to make sure that something isn't wrong and the scheduled time to wait to transition is greater that the
-    // configured max time to wait. For an actual application this would need some kind of status feedback for safety.
-    if (duration_cast<duration<float>>(targetTime - high_resolution_clock::now()) > MaxTimeToWait) {
+    // Check to make sure that something isn't wrong and the scheduled time to
+    // wait to transition is greater that the configured max time to wait. For
+    // an actual application this would need some kind of status feedback for
+    // safety.
+    if (duration_cast<duration<float>>(targetTime - high_resolution_clock::now()) >
+        MaxTimeToWait) {
         std::cerr << "Time to switch to VF greater than Max Allowed Time.\n";
         return;
     }
 
+    // Start up Generator
+    connectionStatus = ConnectionStatus::CONNECTED;
+    operationStatus = OperationStatus::ENABLED_STARTING;
+
+    // Wait for Generator to start up
+    std::this_thread::sleep_for(RampUpTime);
+
     // Return VF Ready status to system
-    OperationStatus == Energy::Enums::OperationStatus::ENABLED_VF_READY;
+    operationStatus = OperationStatus::ENABLED_VF_READY;
 
     std::this_thread::sleep_until(targetTime);
 
     // At this point the device has become the VF device
-    OperationStatus == Energy::Enums::OperationStatus::ENABLED_VF_ON;
+    operationStatus = OperationStatus::ENABLED_VF_ON;
 
     while (ActiveVF) {
-        // Here is where device monitoring specific to being the active VF Device would occur.
+        // Here is where device monitoring specific to being the active VF
+        // Device would occur.
         std::this_thread::sleep_for(milliseconds(100));
     }
 
-    // Active VF has become false. Time to close everything out. There should still be a time specified to make the
-    // switch.
+    // Active VF has become false. Time to close everything out. There should
+    // still be a time specified to make the switch.
     std::this_thread::sleep_until(targetTime);
-    OperationStatus == Energy::Enums::OperationStatus::ENABLED_ON;
+    operationStatus = OperationStatus::DISABLED_OFF;
 
     return;
 }
@@ -235,7 +265,8 @@ void VFDeviceActivity(Energy::Common::Timestamp ts)
 void publisher_main(int domain_id)
 {
     // Create the Domain Particimant QOS to set Entity Name
-    dds::domain::qos::DomainParticipantQos qos_participant = dds::core::QosProvider::Default().participant_qos();
+    auto qos_default = dds::core::QosProvider::Default();
+    auto qos_participant = qos_default.participant_qos();
     rti::core::policy::EntityName entityName("Generator-" + DeviceID);
     qos_participant << entityName;
 
@@ -243,41 +274,42 @@ void publisher_main(int domain_id)
     dds::domain::DomainParticipant participant(domain_id, qos_participant);
 
     // Create Topics -- and automatically register the types
-    dds::topic::Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
-    dds::topic::Topic<Energy::Ops::Info_Generator> TopicInfo_Generator(participant, "Info_Generator");
-    dds::topic::Topic<Energy::Ops::Status_Device> TopicStatus_Device(participant, "Status_Device");
-    dds::topic::Topic<Energy::Ops::Control_Device> TopicControl_Device(participant, "Control_Device");
-    dds::topic::Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
-    dds::topic::Topic<Energy::Ops::VF_Device> TopicVF_Device(participant, "VF_Device");
-    dds::topic::Topic<Energy::Ops::VF_Device_Active> TopicVF_Device_Active(participant, "VF_Device_Active");
+    Topic<Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
+    Topic<Info_Generator> TopicInfo_Generator(participant, "Info_Generator");
+    Topic<Status_Device> TopicStatus_Device(participant, "Status_Device");
+    Topic<Control_Device> TopicControl_Device(participant, "Control_Device");
+    Topic<CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
+    Topic<VF_Device> TopicVF_Device(participant, "VF_Device");
+    Topic<VF_Device_Active> TopicVF_Device_Active(participant, "VF_Device_Active");
 
     // Create Publisher
-    dds::pub::Publisher publisher(participant);
+    Publisher publisher(participant);
 
     // Create DataWriters with Qos
-    dds::pub::DataWriter<Energy::Ops::Meas_NodePower> WriterMeas_NodePower(publisher, TopicMeas_NodePower,
-        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Measurement"));
-    dds::pub::DataWriter<Energy::Ops::Info_Generator> WriterInfo_Generator(publisher, TopicInfo_Generator,
-        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Info"));
-    dds::pub::DataWriter<Energy::Ops::Status_Device> WriterStatus_Device(publisher, TopicStatus_Device,
-        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Status"));
-    dds::pub::DataWriter<Energy::Ops::VF_Device> WriterVF_Device(publisher, TopicVF_Device,
-        dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::VF"));
+    DataWriter<Meas_NodePower> WriterMeas_NodePower(publisher, TopicMeas_NodePower,
+        qos_default.datawriter_qos("EnergyCommsLibrary::Measurement"));
+    DataWriter<Info_Generator> WriterInfo_Generator(publisher, TopicInfo_Generator,
+        qos_default.datawriter_qos("EnergyCommsLibrary::Info"));
+    DataWriter<Status_Device> WriterStatus_Device(publisher, TopicStatus_Device,
+        qos_default.datawriter_qos("EnergyCommsLibrary::Status"));
+    DataWriter<VF_Device> WriterVF_Device(publisher, TopicVF_Device,
+        qos_default.datawriter_qos("EnergyCommsLibrary::VF"));
     // Set the ownership strength of the Control Load to 0 to start with
-    dds::pub::qos::DataWriterQos qos_control_load = dds::core::QosProvider::Default().datawriter_qos("EnergyCommsLibrary::Control");
+    auto qos_control_load = qos_default.datawriter_qos("EnergyCommsLibrary::Control");
     qos_control_load << dds::core::policy::OwnershipStrength(0);
-    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Power(publisher, TopicControl_Power, qos_control_load);
+    DataWriter<CNTL_Single_float32> WriterControl_Power(
+        publisher, TopicControl_Power, qos_control_load);
 
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
 
     // Create DataReaders with Qos
-    dds::sub::DataReader<Energy::Ops::Control_Device> ReaderControl_Device(subscriber, TopicControl_Device,
-        dds::core::QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
-    dds::sub::DataReader<Energy::Common::CNTL_Single_float32> ReaderControl_Power(subscriber, TopicControl_Power,
-        dds::core::QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
-    dds::sub::DataReader<Energy::Ops::VF_Device_Active> ReaderVF_Device_Active(subscriber, TopicVF_Device_Active,
-        dds::core::QosProvider::Default().datareader_qos("EnergyCommsLibrary::Control"));
+    DataReader<Control_Device> ReaderControl_Device(subscriber, TopicControl_Device,
+        qos_default.datareader_qos("EnergyCommsLibrary::Control"));
+    DataReader<CNTL_Single_float32> ReaderControl_Power(subscriber, TopicControl_Power,
+        qos_default.datareader_qos("EnergyCommsLibrary::Control"));
+    DataReader<VF_Device_Active> ReaderVF_Device_Active(subscriber, TopicVF_Device_Active,
+        qos_default.datareader_qos("EnergyCommsLibrary::Control"));
 
     /* Create Query Conditions */
     // Create query parameters
@@ -286,7 +318,8 @@ void publisher_main(int domain_id)
         dds::sub::status::SampleState::not_read(),
         dds::sub::status::ViewState::any(),
         dds::sub::status::InstanceState::alive());
-    // Query Condition for Controlling the device. This is basic functionality for a grid connected device.
+    // Query Condition for Controlling the device. This is basic functionality
+    // for a grid connected device.
     dds::sub::cond::QueryCondition QueryConditionControl_Device(
         dds::sub::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
         commonDataState,
@@ -318,18 +351,20 @@ void publisher_main(int domain_id)
     );
 
     /* Create Read Conditions */
-    // We are using a read condition for the VF_Device_Active because we have different behavior based on whether or
-    // not the device is becoming a VF_Device or passing off being a VF device.
+    // We are using a read condition for the VF_Device_Active because we have
+    // different behavior based on whether or not the device is becoming a
+    // VF_Device or passing off being a VF device.
     dds::sub::cond::ReadCondition ReadConditionVF_Device_Active(
-        ReaderVF_Device_Active, commonDataState, [&ReaderVF_Device_Active, &WriterStatus_Device]() {
+        ReaderVF_Device_Active, commonDataState,
+        [&ReaderVF_Device_Active, &WriterStatus_Device]() {
             auto samples = ReaderVF_Device_Active.take();
             for (auto sample : samples) {
                 if (sample.info().valid()) {
                     if (DeviceID == sample.data().Device()) {
                         ActiveVF = true;
-                        std::thread(VFDeviceActivity, sample.data().SwitchTime()).detach();
-                    }
-                    else {
+                        std::thread(VFDeviceActivity,
+                                    sample.data().SwitchTime()).detach();
+                    } else {
                         SwitchTime = sample.data().SwitchTime();
                         ActiveVF = false;
                     }
@@ -347,49 +382,9 @@ void publisher_main(int domain_id)
     WriterInfo_Generator.write(sampleInfo_Generator);
     WriterControl_Power.write(sampleControl_Power);
 
-    // Get status conditions
-    dds::core::cond::StatusCondition StatusConditionControl_Device(ReaderControl_Device);
-    dds::core::cond::StatusCondition StatusConditionControl_Power(ReaderControl_Power);
-    // Set enabled statuses
-    StatusConditionControl_Device.enabled_statuses(
-        dds::core::status::StatusMask::liveliness_changed());
-    StatusConditionControl_Power.enabled_statuses(
-        dds::core::status::StatusMask::liveliness_changed());
-    // Lambda functions for the status conditions
-    // If there is a liveliness change for device control,
-    StatusConditionControl_Device->handler(
-        [&ReaderControl_Device](dds::core::cond::Condition condition) {
-            dds::core::status::StatusMask status_mask = ReaderControl_Device.status_changes();
-            if ((status_mask & dds::core::status::StatusMask::liveliness_changed()).any()) {
-                auto condition_as_qc = dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
-                auto samples = ReaderControl_Device.select().condition(condition_as_qc).read();
-                for (auto sample : samples)
-                {
-                    // All valid samples will be processed and execute the following function
-                    if (sample.info().valid())
-                        InterconnectControl(sample.data().Command());
-                }
-            }
-        }
-    );
-    // If there is a liveliness change for power control,
-    StatusConditionControl_Power->handler(
-        [&ReaderControl_Power](dds::core::cond::Condition condition) {
-            dds::core::status::StatusMask status_mask = ReaderControl_Power.status_changes();
-            if ((status_mask & dds::core::status::StatusMask::liveliness_changed()).any()) {
-                auto condition_as_qc = dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
-                auto samples = ReaderControl_Power.select().condition(condition_as_qc).read();
-                for (auto sample : samples)
-                {
-                    // All valid samples will be processed and execute the following function
-                    if (sample.info().valid())
-                        SimMeasurement = sample.data().SetPoint();
-                }
-            }
-        }
-    );
-
-    // Launch thread for continuous node measurement writes, status updates, and VF Device Writes
+    // Launch thread for continuous node measurement writes, status updates, and
+    // VF Device Writes
+    std::thread threadMeas(&ContinuousWriter, WriterMeas_NodePower);
     std::thread threadStatus(&StatusMonitor, WriterStatus_Device);
     std::thread threadVF(&ContinuousVFStrength, WriterVF_Device);
 
@@ -398,8 +393,6 @@ void publisher_main(int domain_id)
     waitset += QueryConditionControl_Device;
     waitset += QueryConditionControl_Power;
     waitset += ReadConditionVF_Device_Active;
-    //waitset += StatusConditionControl_Device;
-    //waitset += StatusConditionControl_Power;
 
     // Here we are handling our waitset and reactions to inputs
     while (true) {
