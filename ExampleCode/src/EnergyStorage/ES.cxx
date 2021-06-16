@@ -11,19 +11,19 @@
  * inability to use the software.
  */
 
- /* ES.cxx
+/* ES.cxx
 
- A simulated Energy Storage Device
+A simulated Energy Storage Device
 
- (1) Compile this file and the other devices and applications
+(1) Compile this file and the other devices and applications
 
- (2) Start the devices and applications
+(2) Start the devices and applications
 
- (3) Start the visualization
+(3) Start the visualization
 
- This file can be used as a starting point for any application interfacing a
- PV system to a microgrid.
- */
+This file can be used as a starting point for any application interfacing a
+PV system to a microgrid.
+*/
 
 #include <iostream>
 #include <chrono>
@@ -33,7 +33,7 @@
 
 #include <dds/dds.hpp>
 
-#include "EnergyComms.hpp"
+#include "../generated/EnergyComms.hpp"
 
 using namespace dds::core;
 using namespace dds::topic;
@@ -59,21 +59,20 @@ OperationStatus operationStatus = OperationStatus::DISABLED_OFF;
 const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
 /* StatusMonitor
-* In this example we are watching for the internal status to change, and when it
-* does to publish a new status.
-*/
+ * In this example we are watching for the internal status to change, and when
+ * it does to publish a new status.
+ */
 void StatusMonitor(DataWriter<Status_Device> WriterStatus_Device)
 {
     Status_Device sample(DeviceID, connectionStatus, operationStatus);
 
-    //Perform initial status write
+    // Perform initial status write
     WriterStatus_Device.write(sample);
 
-    while (true)
-    {
+    while (true) {
         // When there is a change to the global variables, send out a new sample
-        if (sample.ConnectionStatus() != connectionStatus ||
-            sample.OperationStatus() != operationStatus) {
+        if (sample.ConnectionStatus() != connectionStatus
+            || sample.OperationStatus() != operationStatus) {
             sample.ConnectionStatus(connectionStatus);
             sample.OperationStatus(operationStatus);
             WriterStatus_Device.write(sample);
@@ -86,9 +85,9 @@ void StatusMonitor(DataWriter<Status_Device> WriterStatus_Device)
 
 
 /* InterconnectControl
-* In this example we are responding to a command to connect or disconnect and
-* changing the appropriate status.
-*/
+ * In this example we are responding to a command to connect or disconnect and
+ * changing the appropriate status.
+ */
 void InterconnectControl(DeviceControl command)
 {
     // Here is where code would go to interface with the actual relay connecting
@@ -97,8 +96,7 @@ void InterconnectControl(DeviceControl command)
     // probably be spawned that would allow status updates to be sent out while
     // letting the device process other incoming messages.
 
-    switch (command.underlying())
-    {
+    switch (command) {
     case DeviceControl::CONNECT:
         connectionStatus = ConnectionStatus::CONNECTED;
         operationStatus = OperationStatus::ENABLED_ON;
@@ -113,11 +111,11 @@ void InterconnectControl(DeviceControl command)
 }
 
 /* GetMeasurement
-* In this example we have a single measurement. This could be the case when the
-* load is on a single phase or if the only thing that needs to be returned (or
-* is available) is the aggregate. This, along with the data model, would need to
-* be changed to pass information on a 3-phase system.
-*/
+ * In this example we have a single measurement. This could be the case when the
+ * load is on a single phase or if the only thing that needs to be returned (or
+ * is available) is the aggregate. This, along with the data model, would need
+ * to be changed to pass information on a 3-phase system.
+ */
 float GetMeasurement()
 {
     // Some sort of communication to the actual system would be here. In our
@@ -125,10 +123,11 @@ float GetMeasurement()
 
     // We are adding a delay here to simulate the actual fetch of information
     // from the system
-    std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 ms
+    std::chrono::milliseconds timespan(90 + std::rand() % 21);  // 90 - 110 ms
     std::this_thread::sleep_for(timespan);
 
-    float meas = SimMeasurement < MaxGeneration ? SimMeasurement : MaxGeneration;
+    float meas =
+            SimMeasurement < MaxGeneration ? SimMeasurement : MaxGeneration;
     meas = meas > MaxLoad ? meas : MaxLoad;
 
     if (SimSOC >= 100.0)
@@ -140,7 +139,8 @@ float GetMeasurement()
     if (connectionStatus == ConnectionStatus::CONNECTED) {
         // We are also going to adjust the SOC based on the measured value and
         // the time span.
-        SimSOC = SimSOC - meas * ((float)timespan.count() / 3600000) / Capacity;
+        SimSOC =
+                SimSOC - meas * ((float) timespan.count() / 3600000) / Capacity;
         return meas;
     } else
         return 0.0;
@@ -157,17 +157,18 @@ float GetSOC()
 }
 
 /* ContinuousWriter
-* In this example we are using a function in a seperate thread to continuously
-* publish measurement data. Depending on whether or not other interfaces are
-* thread safe additional semaphores or locks would need to be introduced when
-* accessing outside interfaces between multiple threads. We are not doing that
-* here because the data being published is simulated.
-*
-* For this we are doing Node Measurement and SOC. Many times SOC is seen within
-* status type topics or messages. Here we treat it as a measurement.
-*/
-void ContinuousWriter(DataWriter<Meas_NodePower> WriterMeas_NodePower,
-    DataWriter<MMXU_Single_float32> WriterMeas_SOC)
+ * In this example we are using a function in a seperate thread to continuously
+ * publish measurement data. Depending on whether or not other interfaces are
+ * thread safe additional semaphores or locks would need to be introduced when
+ * accessing outside interfaces between multiple threads. We are not doing that
+ * here because the data being published is simulated.
+ *
+ * For this we are doing Node Measurement and SOC. Many times SOC is seen within
+ * status type topics or messages. Here we treat it as a measurement.
+ */
+void ContinuousWriter(
+        DataWriter<Meas_NodePower> WriterMeas_NodePower,
+        DataWriter<MMXU_Single_float32> WriterMeas_SOC)
 {
     Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
     MMXU_Single_float32 sampleMeas_SOC(DeviceID, SimSOC);
@@ -184,12 +185,13 @@ void ContinuousWriter(DataWriter<Meas_NodePower> WriterMeas_NodePower,
 }
 
 /* ContinuousVFStrength
-* This helps support VF device switching by having every device provide a
-* relative strength as a VF device. The actual math used in a given system will
-* probably vary, but something like this should be appropriate. The goal of this
-* particular math is to force the generator to take over at some point when SOC
-* is below 20% and for the battery to take over when SOC goes above 80%.
-*/
+ * This helps support VF device switching by having every device provide a
+ * relative strength as a VF device. The actual math used in a given system will
+ * probably vary, but something like this should be appropriate. The goal of
+ * this particular math is to force the generator to take over at some point
+ * when SOC is below 20% and for the battery to take over when SOC goes above
+ * 80%.
+ */
 void ContinuousVFStrength(DataWriter<VF_Device> WriterVF_Device)
 {
     VF_Device dev(DeviceID);
@@ -229,15 +231,15 @@ void VFDeviceActivity(Timestamp ts)
     using Nanoseconds = std::chrono::nanoseconds;
     using Duration = std::chrono::duration<float>;
 
-    std::chrono::time_point<Clock> targetTime(Seconds(ts.Seconds()) +
-                                              Nanoseconds(ts.Fraction()));
+    std::chrono::time_point<Clock> targetTime(
+            Seconds(ts.Seconds()) + Nanoseconds(ts.Fraction()));
 
     // Check to make sure that something isn't wrong and the scheduled time to
     // wait to transition is greater that the configured max time to wait. For
     // an actual application this would need some kind of status feedback for
     // safety.
-    if (std::chrono::duration_cast<Duration>(
-            targetTime - Clock::now()) > MaxTimeToWait) {
+    if (std::chrono::duration_cast<Duration>(targetTime - Clock::now())
+        > MaxTimeToWait) {
         std::cerr << "Time to switch to VF greater than Max Allowed Time.\n";
         return;
     }
@@ -284,48 +286,75 @@ void publisher_main(int domain_id)
     Topic<CNTL_Single_float32> TopicControl_SOC(participant, "Control_SOC");
     Topic<MMXU_Single_float32> TopicMeas_SOC(participant, "Meas_SOC");
     Topic<VF_Device> TopicVF_Device(participant, "VF_Device");
-    Topic<VF_Device_Active> TopicVF_Device_Active(participant, "VF_Device_Active");
+    Topic<VF_Device_Active> TopicVF_Device_Active(
+            participant,
+            "VF_Device_Active");
 
     // Create Publisher
     dds::pub::Publisher publisher(participant);
 
     // Create DataWriters with QoS
     // Specify QoS variables
-    auto qos_writer_meas = qos_default.datawriter_qos("EnergyCommsLibrary::Measurement");
-    auto qos_writer_info = qos_default.datawriter_qos("EnergyCommsLibrary::Info");
-    auto qos_writer_status = qos_default.datawriter_qos("EnergyCommsLibrary::Status");
+    auto qos_writer_meas =
+            qos_default.datawriter_qos("EnergyCommsLibrary::Measurement");
+    auto qos_writer_info =
+            qos_default.datawriter_qos("EnergyCommsLibrary::Info");
+    auto qos_writer_status =
+            qos_default.datawriter_qos("EnergyCommsLibrary::Status");
     auto qos_writer_VF = qos_default.datawriter_qos("EnergyCommsLibrary::VF");
     qos_writer_VF << dds::core::policy::OwnershipStrength(0);
-    auto qos_writer_control = qos_default.datawriter_qos("EnergyCommsLibrary::Control");
+    auto qos_writer_control =
+            qos_default.datawriter_qos("EnergyCommsLibrary::Control");
     // Declare DataWriters
     DataWriter<Meas_NodePower> WriterMeas_NodePower(
-        publisher, TopicMeas_NodePower, qos_writer_meas);
+            publisher,
+            TopicMeas_NodePower,
+            qos_writer_meas);
     DataWriter<MMXU_Single_float32> WriterMeas_SOC(
-        publisher, TopicMeas_SOC, qos_writer_meas);
+            publisher,
+            TopicMeas_SOC,
+            qos_writer_meas);
     DataWriter<Info_Battery> WriterInfo_Battery(
-        publisher, TopicInfo_Battery, qos_writer_info);
+            publisher,
+            TopicInfo_Battery,
+            qos_writer_info);
     DataWriter<Status_Device> WriterStatus_Device(
-        publisher, TopicStatus_Device, qos_writer_status);
+            publisher,
+            TopicStatus_Device,
+            qos_writer_status);
     DataWriter<VF_Device> WriterVF_Device(
-        publisher, TopicVF_Device, qos_writer_VF);
+            publisher,
+            TopicVF_Device,
+            qos_writer_VF);
     DataWriter<CNTL_Single_float32> WriterControl_Power(
-        publisher, TopicControl_Power, qos_writer_control);
+            publisher,
+            TopicControl_Power,
+            qos_writer_control);
 
     // Create Subscriber
     Subscriber subscriber(participant);
 
     // Create DataReaders with QoS
     // Specify QoS variable
-    auto qos_reader_control = qos_default.datareader_qos("EnergyCommsLibrary::Control");
+    auto qos_reader_control =
+            qos_default.datareader_qos("EnergyCommsLibrary::Control");
     // Declare DataReaders
     DataReader<Control_Device> ReaderControl_Device(
-        subscriber, TopicControl_Device, qos_reader_control);
+            subscriber,
+            TopicControl_Device,
+            qos_reader_control);
     DataReader<CNTL_Single_float32> ReaderControl_Power(
-        subscriber, TopicControl_Power, qos_reader_control);
+            subscriber,
+            TopicControl_Power,
+            qos_reader_control);
     DataReader<CNTL_Single_float32> ReaderControl_SOC(
-        subscriber, TopicControl_SOC, qos_reader_control);
+            subscriber,
+            TopicControl_SOC,
+            qos_reader_control);
     DataReader<VF_Device_Active> ReaderVF_Device_Active(
-        subscriber, TopicVF_Device_Active, qos_reader_control);
+            subscriber,
+            TopicVF_Device_Active,
+            qos_reader_control);
 
     /* Create Query Conditions */
     // Create query parameters
@@ -333,53 +362,61 @@ void publisher_main(int domain_id)
     using dds::sub::cond::QueryCondition;
     std::vector<std::string> query_parameters = { "'" + DeviceID + "'" };
     auto commonDataState = dds::sub::status::DataState(
-        dds::sub::status::SampleState::not_read(),
-        dds::sub::status::ViewState::any(),
-        dds::sub::status::InstanceState::alive());
+            dds::sub::status::SampleState::not_read(),
+            dds::sub::status::ViewState::any(),
+            dds::sub::status::InstanceState::alive());
     // Query Condition for Controlling the device. This is basic functionality
     // for a grid connected device.
     QueryCondition QueryConditionControl_Device(
-        Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
-        commonDataState, [&ReaderControl_Device](Condition condition) {
-            auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
-            auto samples =
-                ReaderControl_Device.select().condition(condition_as_qc).read();
-            for (auto sample : samples) {
-                // All valid samples will be processed
-                if (sample.info().valid())
-                    InterconnectControl(sample.data().Command());
-            }
-        }
-    );
+            Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
+            commonDataState,
+            [&ReaderControl_Device](Condition condition) {
+                auto condition_as_qc =
+                        polymorphic_cast<QueryCondition>(condition);
+                auto samples = ReaderControl_Device.select()
+                                       .condition(condition_as_qc)
+                                       .read();
+                for (auto sample : samples) {
+                    // All valid samples will be processed
+                    if (sample.info().valid())
+                        InterconnectControl(sample.data().Command());
+                }
+            });
     // Query Condition for power setting. This is basic functionality for a ES
     // system
     QueryCondition QueryConditionControl_Power(
-        Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
-        commonDataState, [&ReaderControl_Power](Condition condition) {
-            auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
-            auto samples =
-                ReaderControl_Power.select().condition(condition_as_qc).read();
-            for (auto sample : samples) {
-                // All valid samples will be processed and set the global variable
-                if (sample.info().valid())
-                    SimMeasurement = sample.data().SetPoint();
-            }
-        }
-    );
+            Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
+            commonDataState,
+            [&ReaderControl_Power](Condition condition) {
+                auto condition_as_qc =
+                        polymorphic_cast<QueryCondition>(condition);
+                auto samples = ReaderControl_Power.select()
+                                       .condition(condition_as_qc)
+                                       .read();
+                for (auto sample : samples) {
+                    // All valid samples will be processed and set the global
+                    // variable
+                    if (sample.info().valid())
+                        SimMeasurement = sample.data().SetPoint();
+                }
+            });
     // Query Condition for Setting SOC. This is used for simulation only
     QueryCondition QueryConditionControl_SOC(
-        Query(ReaderControl_SOC, "Device MATCH %0", query_parameters),
-        commonDataState, [&ReaderControl_SOC](Condition condition) {
-            auto condition_as_qc = polymorphic_cast<QueryCondition>(condition);
-            auto samples =
-                ReaderControl_SOC.select().condition(condition_as_qc).read();
-            for (auto sample : samples) {
-                // All valid samples will be processed and set the global variable
-                if (sample.info().valid())
-                    SimSOC = sample.data().SetPoint();
-            }
-        }
-    );
+            Query(ReaderControl_SOC, "Device MATCH %0", query_parameters),
+            commonDataState,
+            [&ReaderControl_SOC](Condition condition) {
+                auto condition_as_qc =
+                        polymorphic_cast<QueryCondition>(condition);
+                auto samples = ReaderControl_SOC.select()
+                                       .condition(condition_as_qc)
+                                       .read();
+                for (auto sample : samples) {
+                    // All valid samples will be processed and set the global
+                    // variable
+                    if (sample.info().valid())
+                        SimSOC = sample.data().SetPoint();
+                }
+            });
 
     /* Create Read Conditions */
     using dds::sub::cond::ReadCondition;
@@ -387,28 +424,33 @@ void publisher_main(int domain_id)
     // different behavior based on whether or not the device is becoming a
     // VF_Device or passing off being a VF device.
     ReadCondition ReadConditionVF_Device_Active(
-        ReaderVF_Device_Active, commonDataState,
-        [&ReaderVF_Device_Active, &WriterStatus_Device]() {
-            auto samples = ReaderVF_Device_Active.take();
-            for (auto sample : samples) {
-                if (sample.info().valid()) {
-                    if (DeviceID == sample.data().Device()) {
-                        ActiveVF = true;
-                        std::thread(VFDeviceActivity,
-                                    sample.data().SwitchTime()).detach();
-                    }
-                    else {
-                        SwitchTime = sample.data().SwitchTime();
-                        ActiveVF = false;
+            ReaderVF_Device_Active,
+            commonDataState,
+            [&ReaderVF_Device_Active, &WriterStatus_Device]() {
+                auto samples = ReaderVF_Device_Active.take();
+                for (auto sample : samples) {
+                    if (sample.info().valid()) {
+                        if (DeviceID == sample.data().Device()) {
+                            ActiveVF = true;
+                            std::thread(
+                                    VFDeviceActivity,
+                                    sample.data().SwitchTime())
+                                    .detach();
+                        } else {
+                            SwitchTime = sample.data().SwitchTime();
+                            ActiveVF = false;
+                        }
                     }
                 }
-            }
-        }
-    );
+            });
     // Create Sample objects for datawriters (except for Meas_NodePower, which
     // is handled in another thread)
     Info_Battery sampleInfo_Battery(
-        DeviceID, NodeID, MaxLoad, MaxGeneration, Capacity);
+            DeviceID,
+            NodeID,
+            MaxLoad,
+            MaxGeneration,
+            Capacity);
     CNTL_Single_float32 sampleControl_Power(DeviceID, DeviceID, -5.0);
 
     // Write Info, Status, and Load Control. Each of these topics should only
@@ -419,7 +461,9 @@ void publisher_main(int domain_id)
     // Launch thread for continuous node measurement writes, status updates, and
     // VF Device Writes
     std::thread threadMeas(
-        &ContinuousWriter, WriterMeas_NodePower, WriterMeas_SOC);
+            &ContinuousWriter,
+            WriterMeas_NodePower,
+            WriterMeas_SOC);
     std::thread threadStatus(&StatusMonitor, WriterStatus_Device);
     std::thread threadVF(&ContinuousVFStrength, WriterVF_Device);
 
@@ -447,10 +491,10 @@ int main(int argc, char* argv[])
 
     try {
         publisher_main(0);
-    }
-    catch (const std::exception& ex) {
+    } catch (const std::exception& ex) {
         // This will catch DDS exceptions
-        std::cerr << "Exception in publisher_main(): " << ex.what() << std::endl;
+        std::cerr << "Exception in publisher_main(): " << ex.what()
+                  << std::endl;
         return -1;
     }
 

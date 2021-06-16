@@ -11,19 +11,19 @@
  * inability to use the software.
  */
 
- /* MainInterconnect.cxx
+/* MainInterconnect.cxx
 
- A simulated MainInterconnect Device
+A simulated MainInterconnect Device
 
- (1) Compile this file and the other devices and applications
+(1) Compile this file and the other devices and applications
 
- (2) Start the devices and applications
+(2) Start the devices and applications
 
- (3) Start the visualization
+(3) Start the visualization
 
- This file can be used as a starting point for any application interfacing a
- PV system to a microgrid.
- */
+This file can be used as a starting point for any application interfacing a
+PV system to a microgrid.
+*/
 
 #include <iostream>
 #include <chrono>
@@ -32,7 +32,7 @@
 
 #include <dds/dds.hpp>
 
-#include "EnergyComms.hpp"
+#include "../generated/EnergyComms.hpp"
 
 using namespace Energy::Ops;
 using namespace Energy::Common;
@@ -52,21 +52,20 @@ ConnectionStatus connectionStatus = ConnectionStatus::CONNECTED;
 OperationStatus operationStatus = OperationStatus::ENABLED_ON;
 
 /* StatusMonitor
-* In this example we are watching for the internal status to change, and when it
-* does to publish a new status.
-*/
+ * In this example we are watching for the internal status to change, and when
+ * it does to publish a new status.
+ */
 void StatusMonitor(DataWriter<Status_Device> WriterStatus_Device)
 {
     Status_Device sample(DeviceID, connectionStatus, operationStatus);
 
-    //Perform initial status write
+    // Perform initial status write
     WriterStatus_Device.write(sample);
 
-    while (true)
-    {
+    while (true) {
         // When there is a change to the global variables, send out a new sample
-        if (sample.ConnectionStatus() != connectionStatus ||
-            sample.OperationStatus() != operationStatus) {
+        if (sample.ConnectionStatus() != connectionStatus
+            || sample.OperationStatus() != operationStatus) {
             sample.ConnectionStatus(connectionStatus);
             sample.OperationStatus(operationStatus);
             WriterStatus_Device.write(sample);
@@ -79,9 +78,9 @@ void StatusMonitor(DataWriter<Status_Device> WriterStatus_Device)
 }
 
 /* InterconnectControl
-* In this example we are only changing the published status and setting the
-* simulated measurement parameter appropriately.
-*/
+ * In this example we are only changing the published status and setting the
+ * simulated measurement parameter appropriately.
+ */
 void InterconnectControl(DeviceControl command)
 {
     // Here is where code would go to interface with the actual relay connecting
@@ -90,8 +89,7 @@ void InterconnectControl(DeviceControl command)
     // a thread should  probably be spawned that would allow status updates to
     // be sent out while letting the device process other incoming messages.
 
-    switch (command.underlying())
-    {
+    switch (command) {
     case DeviceControl::CONNECT:
         connected = true;
         connectionStatus = ConnectionStatus::CONNECTED;
@@ -108,12 +106,12 @@ void InterconnectControl(DeviceControl command)
 }
 
 /* GetMeasurement
-* In this example we have two measurements, one for each side of the
-* interconnect. This could be the case when the load is on a single phase or if
-* the only thing that needs to be returned (or is available) is the aggregate.
-* This, along with the data model, would need to be changed to pass information
-* on a 3-phase system.
-*/
+ * In this example we have two measurements, one for each side of the
+ * interconnect. This could be the case when the load is on a single phase or if
+ * the only thing that needs to be returned (or is available) is the aggregate.
+ * This, along with the data model, would need to be changed to pass information
+ * on a 3-phase system.
+ */
 float GetMeasurement()
 {
     // Some sort of communication to the actual system would be here. In our
@@ -121,7 +119,8 @@ float GetMeasurement()
 
     // We are adding a delay here to simulate the actual fetch of information
     // from the system
-    std::chrono::milliseconds timespan(90 + std::rand() % 21); // 90 - 110 milliseconds
+    std::chrono::milliseconds timespan(90 + std::rand() % 21);  // 90 - 110
+                                                                // milliseconds
     std::this_thread::sleep_for(timespan);
 
     if (connected)
@@ -131,19 +130,21 @@ float GetMeasurement()
 }
 
 /* ContinuousWriter
-* In this example we are using a function in a separate thread to continuously
-* publish measurement data. Depending on whether or not other interfaces are
-* thread safe additional semaphores or locks would need to be introduced when
-* accessing outside interfaces between multiple threads. We are not doing that
-* here because the data being published is simulated.
-*/
+ * In this example we are using a function in a separate thread to continuously
+ * publish measurement data. Depending on whether or not other interfaces are
+ * thread safe additional semaphores or locks would need to be introduced when
+ * accessing outside interfaces between multiple threads. We are not doing that
+ * here because the data being published is simulated.
+ */
 void ContinuousWriter(DataWriter<Meas_NodePower> WriterMeas_NodePower)
 {
     Meas_NodePower sampleMeas_NodePower(DeviceID, SimMeasurement, NodeID);
 
     while (true) {
         // Modify the measurement data to be written here
-        sampleMeas_NodePower.Value(GetMeasurement()); // This is a blocking call that times the loop.
+        sampleMeas_NodePower.Value(GetMeasurement());  // This is a blocking
+                                                       // call that times the
+                                                       // loop.
         // Set NodeID to Microgrid Side
         sampleMeas_NodePower.Node(NodeID);
 
@@ -166,11 +167,11 @@ void publisher_main(int domain_id)
 
     // Get the QOS for readers and writers
     auto qos_writer_measurement =
-        qos_default.datawriter_qos("EnergyCommsLibrary::Measurement");
+            qos_default.datawriter_qos("EnergyCommsLibrary::Measurement");
     auto qos_writer_status =
-        qos_default.datawriter_qos("EnergyCommsLibrary::Status");
+            qos_default.datawriter_qos("EnergyCommsLibrary::Status");
     auto qos_reader_control =
-        qos_default.datareader_qos("EnergyCommsLibrary::Control");
+            qos_default.datareader_qos("EnergyCommsLibrary::Control");
 
     // Create a DomainParticipant with default Qos
     dds::domain::DomainParticipant participant(domain_id, qos_participant);
@@ -186,62 +187,74 @@ void publisher_main(int domain_id)
 
     // Create DataWriters with Qos
     DataWriter<Meas_NodePower> WriterMeas_NodePower(
-        publisher, TopicMeas_NodePower, qos_writer_measurement);
+            publisher,
+            TopicMeas_NodePower,
+            qos_writer_measurement);
     DataWriter<Status_Device> WriterStatus_Device(
-        publisher, TopicStatus_Device, qos_writer_status);
+            publisher,
+            TopicStatus_Device,
+            qos_writer_status);
 
     // Create Subscriber
     dds::sub::Subscriber subscriber(participant);
 
     // Create DataReaders with Qos
     DataReader<Control_Device> ReaderControl_Device(
-        subscriber, TopicControl_Device, qos_reader_control);
+            subscriber,
+            TopicControl_Device,
+            qos_reader_control);
     DataReader<CNTL_Single_float32> ReaderControl_Power(
-        subscriber, TopicControl_Power, qos_reader_control);
+            subscriber,
+            TopicControl_Power,
+            qos_reader_control);
 
     /* Create Query Conditions */
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + DeviceID + "'" };
     dds::sub::status::DataState commonDataState = dds::sub::status::DataState(
-        dds::sub::status::SampleState::not_read(),
-        dds::sub::status::ViewState::any(),
-        dds::sub::status::InstanceState::alive());
+            dds::sub::status::SampleState::not_read(),
+            dds::sub::status::ViewState::any(),
+            dds::sub::status::InstanceState::alive());
     // Query Condition for Controlling the device. This is basic functionality
     // for a grid connected device.
     dds::sub::cond::QueryCondition QueryConditionControl_Device(
-        dds::sub::Query(ReaderControl_Device, "Device MATCH %0", query_parameters),
-        commonDataState,
-        [&ReaderControl_Device](dds::core::cond::Condition condition) {
-            auto condition_as_qc =
-                dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
-            auto samples =
-                ReaderControl_Device.select().condition(condition_as_qc).take();
-            for (auto sample : samples)
-            {
-                // All valid samples will be processed and execute the following
-                // function
-                if (sample.info().valid())
-                    InterconnectControl(sample.data().Command());
-            }
-        }
-    );
+            dds::sub::Query(
+                    ReaderControl_Device,
+                    "Device MATCH %0",
+                    query_parameters),
+            commonDataState,
+            [&ReaderControl_Device](dds::core::cond::Condition condition) {
+                auto condition_as_qc = dds::core::polymorphic_cast<
+                        dds::sub::cond::QueryCondition>(condition);
+                auto samples = ReaderControl_Device.select()
+                                       .condition(condition_as_qc)
+                                       .take();
+                for (auto sample : samples) {
+                    // All valid samples will be processed and execute the
+                    // following function
+                    if (sample.info().valid())
+                        InterconnectControl(sample.data().Command());
+                }
+            });
     // Query Condition for power setting. This is used for sim and comes from
     // the PowerFlowSim
     dds::sub::cond::QueryCondition QueryConditionControl_Power(
-        dds::sub::Query(ReaderControl_Power, "Device MATCH %0", query_parameters),
-        commonDataState,
-        [&ReaderControl_Power](dds::core::cond::Condition condition) {
-            auto condition_as_qc =
-                dds::core::polymorphic_cast<dds::sub::cond::QueryCondition>(condition);
-            auto samples =
-                ReaderControl_Power.select().condition(condition_as_qc).read();
-            for (auto sample : samples)
-                if (sample.info().valid()) {
-                    SimMeasurement = sample.data().SetPoint();
-
-                }
-        }
-    );
+            dds::sub::Query(
+                    ReaderControl_Power,
+                    "Device MATCH %0",
+                    query_parameters),
+            commonDataState,
+            [&ReaderControl_Power](dds::core::cond::Condition condition) {
+                auto condition_as_qc = dds::core::polymorphic_cast<
+                        dds::sub::cond::QueryCondition>(condition);
+                auto samples = ReaderControl_Power.select()
+                                       .condition(condition_as_qc)
+                                       .read();
+                for (auto sample : samples)
+                    if (sample.info().valid()) {
+                        SimMeasurement = sample.data().SetPoint();
+                    }
+            });
 
 
     // Launch thread for continuous node measurement writes, status updates, and
@@ -256,7 +269,8 @@ void publisher_main(int domain_id)
 
     // Here we are handling our waitset and reactions to inputs
     while (true) {
-        // Dispatch will call the handlers associated to the WaitSet conditions when they activate
+        // Dispatch will call the handlers associated to the WaitSet conditions
+        // when they activate
         waitset.dispatch(dds::core::Duration(4));  // Wait up to 4s each time
     }
 }
@@ -269,10 +283,10 @@ int main(int argc, char* argv[])
 
     try {
         publisher_main(0);
-    }
-    catch (const std::exception& ex) {
+    } catch (const std::exception& ex) {
         // This will catch DDS exceptions
-        std::cerr << "Exception in publisher_main(): " << ex.what() << std::endl;
+        std::cerr << "Exception in publisher_main(): " << ex.what()
+                  << std::endl;
         return -1;
     }
 
