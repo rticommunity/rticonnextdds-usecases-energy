@@ -129,7 +129,7 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
       <qos_profile name="Default" base_name="BuiltinQosLib::Generic.KeepLastReliable" is_default_qos="true">
       </qos_profile>
 
-      <qos_profile name="Measurement" base_name="BuiltinQosLib::Generic.KeepLastReliable">
+      <qos_profile name="Measurement" base_name="BuiltinQosLib::Generic.BestEffort">
       </qos_profile>
 
       <qos_profile name="Info" base_name="BuiltinQosLib::Generic.KeepLastReliable.TransientLocal">
