@@ -1,0 +1,17 @@
+# Ignore build directories
+**/build
+**/generated
+
+# Ignore files created through cmake
+EnergyComms.cxx
+EnergyComms.hpp
+EnergyCommsPlugin.cxx
+EnergyCommsPlugin.hpp
+EnergyComms_timestamp.cmake
+
+# Ignore emacs temporary files
+\#*\#
+.\#*
+
+# Ignore glade temporary files
+*.glade~

@@ -127,7 +127,7 @@ module Ops {
 
     struct Info_Generator : Energy::Ops::Info_Resource {
       sequence<Energy::Common::EfficiencyPoint, 1024> PowerEfficiency;
-	  uint32 RampUpTime;
+        uint32 RampUpTime;
     };
 
     struct Status_Device : Energy::Common::STAT {
@@ -161,4 +161,3 @@ module Ops {
   };
 
 };
-
