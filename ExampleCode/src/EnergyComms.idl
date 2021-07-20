@@ -1,4 +1,27 @@
-module Energy {
+module Energy{
+module application {
+    const string TOPIC_MEAS_NODEPOWER = "Meas_NodePower";
+    const string TOPIC_MEAS_SOC = "Meas_SOC";
+    const string TOPIC_INFO_RESOURCE = "Info_Resource";
+    const string TOPIC_INFO_GENERATOR = "Info_Generator";
+    const string TOPIC_INFO_BATTERY = "Info_Battery";
+    const string TOPIC_STATUS_DEVICE = "Status_Device";
+    const string TOPIC_STATUS_MICROGRID = "Status_Microgrid";
+    const string TOPIC_CONTROL_MICROGRID = "Control_Microgrid";
+    const string TOPIC_CONTROL_DEVICE = "Control_Device";
+    const string TOPIC_CONTROL_POWER = "Control_Power";
+    const string TOPIC_CONTROL_IRRADIANCE = "Control_Irradiance";
+    const string TOPIC_CONTROL_SOC = "Control_SOC";
+    const string TOPIC_VF_DEVICE = "VF_Device";
+    const string TOPIC_VF_DEVICE_ACTIVE = "VF_Device_Active";
+
+    const string QOS_MEAS = "EnergyCommsLibrary::Measurement";
+    const string QOS_INFO = "EnergyCommsLibrary::Info";
+    const string QOS_STATUS = "EnergyCommsLibrary::Status";
+    const string QOS_CONTROL = "EnergyCommsLibrary::Control";
+    const string QOS_VF_DEVICE = "EnergyCommsLibrary::VF";
+    const string QOS_VF_DEVICE_ACTIVE = "EnergyCommsLibrary::Control";
+};
 module Common {
     typedef string<64> ID;
 

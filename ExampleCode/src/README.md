@@ -18,18 +18,9 @@ Generator). To build the example, run CMake as follows:
 cmake --build .
 ```
 
-**Note**: if you are using a multi-configuration generator, such as Visual
-Studio solutions, you can specify the configuration mode to build as follows:
-
-```sh
-cmake --build . --config Release|Debug
-```
-
 Alternatively, you can use directly the generated infrastructure (e.g.,
-Makefiles or Visual Studio Solutions) to build the example. If you generated
-Makefiles in the configuration process, run make to build the example. Likewise,
-if you generated a Visual Studio solution, open the solution and follow the
-regular build process.
+Makefiles) to build the example. If you generated Makefiles in the 
+configuration process, run make to build the example.
 
 ## Running the Example
 
@@ -39,33 +30,6 @@ Simply run the `runAll.sh` script located in the `resources/scripts` directory.
 ```
 
 ## Customizing the Build
-
-### Configuring Build Type and Generator
-
-By default, CMake will generate build files using the most common generator for
-your host platform (e.g., Makefiles on Unix-like systems and Visual Studio
-solution on Windows), \. You can use the following CMake variables to modify the
-default behavior:
-
--   `-DCMAKE_BUILD_TYPE` -- specifies the build mode. Valid values are Release
-    and Debug. See the [CMake documentation for more details.
-    (Optional)](https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html)
-
--   `-DBUILD_SHARED_LIBS` -- specifies the link mode. Valid values are ON for
-    dynamic linking and OFF for static linking. See [CMake documentation for
-    more details.
-    (Optional)](https://cmake.org/cmake/help/latest/variable/BUILD_SHARED_LIBS.html)
-
--   `-G` -- CMake generator. The generator is the native build system to use
-    build the source code. All the valid values are described described in the
-    CMake documentation [CMake Generators
-    Section.](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html)
-
-For example, to build a example in Debug/Static mode run CMake as follows:
-
-```sh
-cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON .. -G "Visual Studio 15 2017" -A x64
-```
 
 ### Configuring Connext DDS Installation Path and Architecture
 

@@ -1,5 +1,12 @@
 # Example Code: Visualization
 
+The Visualizer allows visibility to all elements of the system, as well as 
+control for solar irradiance, state of charge, and manual device control. It 
+publishes to the solar irradiance, state of charge, and device control topics. 
+It subscribes to all measurement, status, and information topics for 
+presentation. The visualization uses GTK for generating the GUI, making it 
+relatively cross-platform.
+
 ## Visualizer
 Combining GTK+ 3.0 and RTI Connext DDS, this application provides a graphical
 user interface to the system, taking data from the different grid elements and

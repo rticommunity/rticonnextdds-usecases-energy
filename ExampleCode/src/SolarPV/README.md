@@ -1,5 +1,10 @@
 # Example Code: Solar PV
 
+The solar simulator publishes the PV system power (PV output), PV system
+information, and PV system status. The solar simulator subscribes to control
+topics for connection and output (curtailment). There is also a subscription
+to a solar irradiance topic used for simulation.
+
 ### Published Topics
 
 - **Meas_NodePower**
