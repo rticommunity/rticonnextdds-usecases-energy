@@ -40,8 +40,6 @@ const std::string InterconnectID = "SampleInterconnect";
 const std::string VizID = "SampleViz";
 const std::chrono::duration<float> MinIslandDelay = std::chrono::seconds(5);
 
-
-
 Energy::Common::Timestamp SwitchTime;
 const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
 
