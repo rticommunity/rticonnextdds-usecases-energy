@@ -122,7 +122,7 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
 -->
 
 <dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:noNamespaceSchemaLocation="C:/Program Files/rti_connext_dds-6.0.1/bin/../resource/schema/rti_dds_qos_profiles.xsd">
+    xsi:noNamespaceSchemaLocation="http://community.rti.com/schema/6.1.0/rti_dds_qos_profiles.xsd">
 
     <qos_library name="EnergyCommsLibrary">
 
