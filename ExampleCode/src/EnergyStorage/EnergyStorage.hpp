@@ -1,0 +1,45 @@
+/*
+ * (c) 2021 Copyright, Real-Time Innovations, Inc. (RTI) All rights reserved.
+ *
+ * RTI grants Licensee a license to use, modify, compile, and create derivative
+ * works of the software solely for use with RTI Connext DDS.  Licensee may
+ * redistribute copies of the software provided that all such copies are
+ * subject to this license. The software is provided "as is", with no warranty
+ * of any type, including any warranty for fitness for any purpose. RTI is
+ * under no obligation to maintain or support the software.  RTI shall not be
+ * liable for any incidental or consequential damages arising out of the use or
+ * inability to use the software.
+ */
+
+#ifndef ENERGY_STORAGE_H
+#define ENERGY_STORAGE_H
+
+#include "../common/IED.hpp"
+#include "../generated/EnergyComms.hpp"
+
+class EnergyStorage : IED {
+public:
+    EnergyStorage(const int domainId, const std::string& entityName, const int32_t strength = 1000);
+
+    void ();
+    void ExecuteController(const std::string& OptimizerID, const std::string& InterconnectID, const std::string& VizID);
+
+protected:
+    void CheckTrip();
+    void IslandMicrogrid();
+    void IslandOperation(bool Immediate);
+    void Optimize();
+    void ProcessVizCommand(Energy::Enums::MicrogridStatus command);
+    void Resynchronize();
+    void UnintentionalIsland();
+
+private:
+    ConnextEnergy* comms_;
+    bool runProcesses_;
+
+    std::string optimizerID_;
+    std::string interconnectID_;
+    std::string vizID_;
+};
+
+#endif
