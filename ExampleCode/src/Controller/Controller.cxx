@@ -30,6 +30,7 @@ PV system to a microgrid.
 #include <thread>
 #include <random>
 #include <condition_variable>
+#include <fstream>
 
 #include "Controller.hpp"
 
@@ -45,6 +46,7 @@ using namespace dds::topic;
 using namespace dds::pub;
 using namespace dds::sub;
 
+using namespace std;
 using namespace std::chrono;
 using std::ref;
 
@@ -52,10 +54,16 @@ using std::ref;
  * This is the contstructor for the controller. This sets up communication and gets the class ready
  * to execute threads.
  */
-Controller::Controller(const int domainId, const std::string& entityName, const int32_t strength) : 
+Controller::Controller(const int domainId, const std::string& entityName, const INIReader& config) :
     ConnextEnergy(domainId, entityName)
 {
     runProcesses_ = true;
+
+    // Pull configuration from ini file
+    optimizerID_ = config.Get("Controller", "OptimizerID", "SampleOpt");
+    interconnectID_ = config.Get("Controller", "InterconnectID", "SampleInterconnect");
+    vizID_ = config.Get("Controller", "VizID", "Visualizer");
+    int32_t strength = config.GetInteger("Controller", "Strength", 1000);
 
     // Initialize Control DataWriters
     WriterControl_Device();
@@ -81,12 +89,8 @@ void Controller::StopController()
  * This is meant to be executed as it's own thread by main. This sets up all threads and executes
  * the waitset
  */
-void Controller::ExecuteController(const std::string& OptimizerID, const std::string& InterconnectID, const std::string& VizID)
+void Controller::ExecuteController()
 {
-    optimizerID_ = OptimizerID;
-    interconnectID_ = InterconnectID;
-    vizID_ = VizID;
-
     /* Create Query Conditions */
     using namespace dds::sub::status;
     using QueryCondition = dds::sub::cond::QueryCondition;
@@ -195,7 +199,7 @@ void Controller::IslandOperation(bool Immediate)
         // Get the additional delay needed if the device is a generator else use
         // the MinIslandDelay
         IslandDelay = MinIslandDelay;
-        for (auto sample : this->comms_->ReaderInfo_Generator().read())
+        for (auto sample : this->ReaderInfo_Generator().read())
             if (sample.info().valid() && sample.data().Device() == VFDeviceID)
                 IslandDelay =
                         seconds(sample.data().RampUpTime()) + MinIslandDelay;

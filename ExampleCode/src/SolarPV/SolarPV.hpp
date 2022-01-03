@@ -11,24 +11,32 @@
  * inability to use the software.
  */
 
-/* Load.cxx
+#ifndef SOLAR_PV_H
+#define SOLAR_PV_H
 
-A simulated Load Device
-
-This file can be used as a starting point for any application interfacing a
-load (smart or dumb) to a microgrid.
-*/
-
-#include <dds/dds.hpp>
-
+#include "../common/IED.hpp"
 #include "../generated/EnergyComms.hpp"
-#include "Load.hpp"
 
-/* Load
-* Load devices are generic IEDs. The big thing is that they only Load
-*/
-Load::Load(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, config)
-{
+class SolarPV : public IED {
+public:
+    SolarPV(const int domainId, const std::string& entityName, const INIReader& config);
+
+    //void ();
+    void Execute() override;
     
-}
+protected:
+    float SimMeasurement() override; // overloaded from IED class
+
+    // Getters and Setters for dynamic members
+    float SimIrradiance() const;
+    void SimIrradiance(const float& irradiance);
+
+private:
+    float simIrradiance_;
+    float radiantValue_;
+
+    // Radiant value is a combination of Irradiance and MaxGeneration
+    const float& RadiantValue() const;
+};
+
+#endif

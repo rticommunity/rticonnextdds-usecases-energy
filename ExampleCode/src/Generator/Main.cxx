@@ -11,20 +11,17 @@
  * inability to use the software.
  */
 
-#include "Controller.hpp"
+#include "Generator.hpp"
 
 #include <thread>
 #include "../common/filesystem.hpp"
 #include "../../../submodules/inih/INIReader.h"
 
-using namespace Energy::Enums;
-using namespace std;
-
-// ----------------------------------------------------------------------------
-// PrintHelp:
-// Function that prints out the help if somebody runs the application with
-// --help
-//
+ // ----------------------------------------------------------------------------
+ // PrintHelp:
+ // Function that prints out the help if somebody runs the application with
+ // --help
+ //
 void PrintHelp()
 {
     cout << "Valid options are: " << endl;
@@ -35,13 +32,13 @@ void PrintHelp()
     cout << "    --config [path]"
         << " Config file used to define device behavior." << endl
         << "                               "
-        << "Default is Controller.ini." << endl;
+        << "Default is Generator.ini." << endl;
 }
 
 int main(int argc, char* argv[])
 {
     int domainId = 0;
-    std::string configFile = "Controller.ini";
+    std::string configFile = "EnergyStorage.ini";
 
     for (int i = 0; i < argc; i++) {
         // Look for a Domain ID tag
@@ -98,24 +95,24 @@ int main(int argc, char* argv[])
     try {
         INIReader config(configFile);
 
-        string entityName("Controller-" + config.Get("Controller", "OptimizerID", "SampleOpt"));
+        string entityName("Gen-" + config.Get("IED", "DeviceID", "SimGenerator"));
 
-        auto&& controller = new Controller(domainId, entityName, config);
+        auto&& gen = new Generator(domainId, entityName, config);
 
-        thread executeThread(&Controller::ExecuteController, controller);
+        std::thread executeThread(&Generator::Execute, gen);
 
-        cout << "Controller Operating. Press Enter to quit." << endl;
+        cout << "Generator Unit Operating. Press Enter to quit." << endl;
 
         cin.get();
 
-        controller->StopController();
+        gen->StopIED();
         executeThread.join();
 
-        cout << "Controller Shut Down." << endl;
+        cout << "Generator Unit Shut Down." << endl;
     }
     catch (const std::exception& ex) {
         // This will catch DDS exceptions
-        std::cerr << "Exception in publisher_main(): " << ex.what()
+        std::cerr << "Exception in execute(): " << ex.what()
             << std::endl;
         return -1;
     }

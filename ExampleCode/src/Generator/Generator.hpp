@@ -11,38 +11,33 @@
  * inability to use the software.
  */
 
-#ifndef ENERGY_STORAGE_H
-#define ENERGY_STORAGE_H
+#ifndef GENERATOR_H
+#define GENERATOR_H
 
 #include "../common/IED.hpp"
 #include "../generated/EnergyComms.hpp"
 
-class EnergyStorage : public IED {
+class Generator : public IED {
 public:
-    EnergyStorage(const int domainId, const std::string& entityName, const INIReader& config);
+    Generator(const int domainId, const std::string& entityName, const INIReader& config);
 
-    //void ();
-    void Execute() override;
-    void ContinuousWriter();
+    // Override of base function to add RampUpTime
+    void InterconnectControl(Energy::Enums::DeviceControl command) override;
     void ContinuousVFStrength() override;
     void SetInfo() override;
-    
+
 protected:
-    float SimMeasurement() override; // overloaded from IED class
-
-    // Getters and Setters for dynamic members
-    float SimSOC() const;
-    void SimSOC(const float& soc);
-
     // Getters for static members
-    float Capacity() const;
+    const chrono::seconds& RampUpTime() const;
+    const rti::core::bounded_sequence<Energy::Common::EfficiencyPoint, 1024>& EfficiencyCurve() const;
 
 private:
-    float simSOC_;
-    float capacity_;
+    chrono::seconds rampUpTime_;
+    rti::core::bounded_sequence<Energy::Common::EfficiencyPoint, 1024>* efficiencyCurve_;
 
-    // Setters for static members
-    void Capacity(const float& kWh);
+    // Setters for constant private memebers
+    void RampUpTime(const int seconds);
+    void InitializeEfficiencyCurve();
 };
 
 #endif

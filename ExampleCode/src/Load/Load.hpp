@@ -11,24 +11,20 @@
  * inability to use the software.
  */
 
-/* Load.cxx
+#ifndef LOAD_H
+#define LOAD_H
 
-A simulated Load Device
-
-This file can be used as a starting point for any application interfacing a
-load (smart or dumb) to a microgrid.
-*/
-
-#include <dds/dds.hpp>
-
+#include "../common/IED.hpp"
 #include "../generated/EnergyComms.hpp"
-#include "Load.hpp"
 
-/* Load
-* Load devices are generic IEDs. The big thing is that they only Load
-*/
-Load::Load(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, config)
-{
+class Load : public IED {
+public:
+    Load(const int domainId, const std::string& entityName, const INIReader& config);
+
+protected:
     
-}
+private:
+    
+};
+
+#endif

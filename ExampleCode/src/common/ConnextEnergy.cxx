@@ -31,6 +31,15 @@ ConnextEnergy::WriterControl_Device()
         Energy::application::QOS_CONTROL);
 }
 
+// Used to set simulated irradiance
+dds::pub::DataWriter<Energy::Common::CNTL_Single_float32>
+ConnextEnergy::WriterControl_Irradiance()
+{
+    return Writer<Energy::Common::CNTL_Single_float32>(
+        Energy::application::TOPIC_CONTROL_IRRADIANCE,
+        Energy::application::QOS_CONTROL);
+}
+
 // Commands for the viz on Microgrid operations
 dds::pub::DataWriter<Energy::Ops::Status_Microgrid>
 ConnextEnergy::WriterControl_Microgrid()
@@ -45,6 +54,15 @@ ConnextEnergy::WriterControl_Power()
 {
     return Writer<Energy::Common::CNTL_Single_float32>(
         Energy::application::TOPIC_CONTROL_POWER,
+        Energy::application::QOS_CONTROL);
+}
+
+// Used to set simulated SOC
+dds::pub::DataWriter<Energy::Common::CNTL_Single_float32>
+ConnextEnergy::WriterControl_SOC()
+{
+    return Writer<Energy::Common::CNTL_Single_float32>(
+        Energy::application::TOPIC_CONTROL_SOC,
         Energy::application::QOS_CONTROL);
 }
 
@@ -140,6 +158,15 @@ ConnextEnergy::ReaderControl_Device()
         Energy::application::QOS_CONTROL);
 }
 
+// Used to set simulated irradiance
+dds::sub::DataReader<Energy::Common::CNTL_Single_float32>
+ConnextEnergy::ReaderControl_Irradiance()
+{
+    return Reader<Energy::Common::CNTL_Single_float32>(
+        Energy::application::TOPIC_CONTROL_IRRADIANCE,
+        Energy::application::QOS_CONTROL);
+}
+
 // Gets commands from the viz on Microgrid operations
 dds::sub::DataReader<Energy::Ops::Status_Microgrid>
 ConnextEnergy::ReaderControl_Microgrid()
@@ -155,6 +182,15 @@ ConnextEnergy::ReaderControl_Power()
 {
     return Reader<Energy::Common::CNTL_Single_float32>(
         Energy::application::TOPIC_CONTROL_POWER,
+        Energy::application::QOS_CONTROL);
+}
+
+// Used to set simulated SOC
+dds::sub::DataReader<Energy::Common::CNTL_Single_float32>
+ConnextEnergy::ReaderControl_SOC()
+{
+    return Reader<Energy::Common::CNTL_Single_float32>(
+        Energy::application::TOPIC_CONTROL_SOC,
         Energy::application::QOS_CONTROL);
 }
 

@@ -29,10 +29,14 @@ public:
     // ------------------ Getters for DataWriters -------------------
     // Used to control the Main Interconnect for island/resync
     dds::pub::DataWriter<Energy::Ops::Control_Device> WriterControl_Device();
+    // Sets simulated irradiance
+    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Irradiance();
     // Commands for the viz on Microgrid operations
     dds::pub::DataWriter<Energy::Ops::Status_Microgrid> WriterControl_Microgrid();
     // Used to control setpoints for ES, Generator, and PV
     dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_Power();
+    // Used to set simulated SOC
+    dds::pub::DataWriter<Energy::Common::CNTL_Single_float32> WriterControl_SOC();
     // Sets Info specific to Energy Storage units
     dds::pub::DataWriter<Energy::Ops::Info_Battery> WriterInfo_Battery();
     // Sets Info specific to Generators
@@ -56,10 +60,14 @@ public:
     // Used to control a device for connection or disconnection of a relay
     // associated with the device
     dds::sub::DataReader<Energy::Ops::Control_Device> ReaderControl_Device();
+    // Sets simulated Irradiance
+    dds::sub::DataReader<Energy::Common::CNTL_Single_float32> ReaderControl_Irradiance();
     // Gets commands from the viz on Microgrid operations
     dds::sub::DataReader<Energy::Ops::Status_Microgrid> ReaderControl_Microgrid();
     // Used to get setpoints for ES, Generator, and PV
     dds::sub::DataReader<Energy::Common::CNTL_Single_float32> ReaderControl_Power();
+    // Used to set simulated SOC
+    dds::sub::DataReader<Energy::Common::CNTL_Single_float32> ReaderControl_SOC();
     // Gets Info for all ES units
     dds::sub::DataReader<Energy::Ops::Info_Battery> ReaderInfo_Battery();
     // Gets info for all generators

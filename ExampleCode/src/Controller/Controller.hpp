@@ -16,13 +16,14 @@
 
 #include "../common/ConnextEnergy.hpp"
 #include "../generated/EnergyComms.hpp"
+#include "../../../submodules/inih/INIReader.h"
 
 class Controller : ConnextEnergy {
 public:
-    Controller(const int domainId, const std::string& entityName, const int32_t strength=1000);
+    Controller(const int domainId, const std::string& entityName, const INIReader& config);
 
     void StopController();
-    void ExecuteController(const std::string& OptimizerID, const std::string& InterconnectID, const std::string& VizID);
+    void ExecuteController();
 
 protected:
     void CheckTrip();
@@ -34,7 +35,6 @@ protected:
     void UnintentionalIsland();
 
 private:
-    ConnextEnergy* comms_;
     bool runProcesses_;
 
     std::string optimizerID_;
