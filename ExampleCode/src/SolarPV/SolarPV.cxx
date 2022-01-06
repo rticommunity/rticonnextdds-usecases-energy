@@ -91,13 +91,6 @@ float SolarPV::SimMeasurement()
 {
     using namespace Energy::Enums;
 
-    // Some sort of communication to the actual system would be here. In our
-    // case we're just going to pull from the simulated measurement variable
-
-    // We are adding a delay here to simulate the actual fetch of information
-    // from the system
-    IED::HardwareAccessDelay(90, 110);
-
     // Call of base function, this is getting the max generation that the
     // system is allowing due to curtailment
     auto&& curtailedValue = IED::SimMeasurement();

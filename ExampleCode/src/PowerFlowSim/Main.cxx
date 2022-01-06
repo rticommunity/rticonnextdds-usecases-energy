@@ -11,7 +11,7 @@
  * inability to use the software.
  */
 
-#include "Controller.hpp"
+#include "PowerFlowSim.hpp"
 
 #include <thread>
 #include "../common/filesystem.hpp"
@@ -34,13 +34,13 @@ void PrintHelp()
     cout << "    --config [path]"
         << " Config file used to define device behavior." << endl
         << "                               "
-        << "Default is Controller.ini." << endl;
+        << "Default is PowerFlowSim.ini." << endl;
 }
 
 int main(int argc, char* argv[])
 {
     int domainId = 0;
-    std::string configFile = "Controller.ini";
+    std::string configFile = "PowerFlowSim.ini";
 
     for (int i = 0; i < argc; i++) {
         // Look for a Domain ID tag
@@ -97,20 +97,20 @@ int main(int argc, char* argv[])
     try {
         INIReader config(configFile);
 
-        string entityName("Controller-" + config.Get("Controller", "OptimizerID", "SampleOpt"));
+        string entityName(config.Get("PowerFlowSim", "DeviceID", "PowerFlowSim"));
 
-        auto&& controller = new Controller(domainId, entityName, config);
+        auto&& sim = new PowerFlowSim(domainId, entityName, config);
 
-        thread executeThread(&Controller::ExecuteController, controller);
+        thread executeThread(&PowerFlowSim::ExecuteSim, sim);
 
-        cout << "Controller Operating. Press Enter to quit." << endl;
+        cout << "Power Flow Simulator Operating. Press Enter to quit." << endl;
 
         cin.get();
 
-        controller->StopController();
+        sim->StopSim();
         executeThread.join();
 
-        cout << "Controller Shut Down." << endl;
+        cout << "PowerFlowSim Shut Down." << endl;
     }
     catch (const std::exception& ex) {
         // This will catch DDS exceptions

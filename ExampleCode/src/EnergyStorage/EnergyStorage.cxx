@@ -77,8 +77,14 @@ void EnergyStorage::Execute()
         });
     AttachCondition(QueryConditionControl_SOC);
 
+    // The IED class handles writing Node Measurement, this is for writing out
+    // the SOC
+    std::thread threadMeas(&EnergyStorage::ContinuousWriter, this);
+
     // This needs to be done at the end, as it handles the waitset dispatch
     IED::Execute();
+
+    threadMeas.join();
 }
 
 /* SimMeasurement
@@ -90,12 +96,7 @@ float EnergyStorage::SimMeasurement()
     using namespace std::chrono;
     using namespace Energy::Enums;
 
-    // Some sort of communication to the actual system would be here. In our
-    // case we're just going to pull from the simulated measurement variable
-
-    // We are adding a delay here to simulate the actual fetch of information
-    // from the system
-    auto&& timespan = IED::HardwareAccessDelay(90, 110);
+    milliseconds timespan(100ms);
     
     // Call of base function
     auto&& meas = IED::SimMeasurement();
@@ -193,7 +194,7 @@ void EnergyStorage::ContinuousVFStrength()
     int32_t str = 0;
     dds::pub::qos::DataWriterQos QosVF_Device = WriterVF_Device().qos();
 
-    while (true) {
+    while (RunProcesses()) {
         if (SimSOC() <= 20.0)
             str = (int32_t)(SimSOC() * MaxGeneration());
         else if (SimSOC() >= 80.0)

@@ -52,13 +52,13 @@ protected:
     /* Utility functions */
     // Performs a short delay and returns how long the delay was
     virtual std::chrono::milliseconds HardwareAccessDelay(int minMs, int maxMs) const;
-    const bool& RunProcesses() const; // return constant reference to the Run Process flag
+    const bool RunProcesses() const;
     template<typename T>
     void AttachCondition(T condition) { waitset_.attach_condition(condition); }
 
 private:
     std::atomic<bool> runProcesses_;
-    Energy::Common::Timestamp switchTime_;
+    std::atomic<Energy::Common::Timestamp> switchTime_;
     dds::core::cond::WaitSet waitset_;
 
     string deviceID_;

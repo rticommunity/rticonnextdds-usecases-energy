@@ -35,7 +35,7 @@ protected:
     void UnintentionalIsland();
 
 private:
-    bool runProcesses_;
+    atomic<bool> runProcesses_;
 
     std::string optimizerID_;
     std::string interconnectID_;

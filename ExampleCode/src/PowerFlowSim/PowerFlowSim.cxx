@@ -31,6 +31,7 @@ load (smart or dumb) to a microgrid.
 
 #include <dds/dds.hpp>
 
+#include "PowerFlowSim.hpp"
 #include "../generated/EnergyComms.hpp"
 
 using namespace dds::core;
@@ -42,185 +43,190 @@ using namespace Energy::Ops;
 using namespace Energy::Common;
 using namespace Energy::Enums;
 
-const std::string DeviceID = "PowerFlowSim";
-const std::string OptimizerID = "SampleOpt";
-const std::string InterconnectID = "SampleInterconnect";
+/* Controller
+ * This is the contstructor for the controller. This sets up communication and gets the class ready
+ * to execute threads.
+ */
+PowerFlowSim::PowerFlowSim(const int domainId, const std::string& entityName, const INIReader& config) :
+    ConnextEnergy(domainId, entityName)
+{
+    runProcesses_ = true;
+    currentStatus_ = Energy::Enums::MicrogridStatus::CONNECTED;
+
+    // Pull configuration from ini file
+    optimizerID_ = config.Get("PowerFlowSim", "OptimizerID", "SampleOpt");
+    interconnectID_ = config.Get("PowerFlowSim", "InterconnectID", "SampleInterconnect");
+    deviceID_ = config.Get("PowerFlowSim", "DeviceID", "PowerFlowSim");
+    simThreadWait_ = std::chrono::milliseconds(config.GetInteger("PowerFlowSim", "SimThreadWait", 100));
+    int32_t strength = config.GetInteger("PowerFlowSim", "Strength", 20000);
+
+    // Initialize Control DataWriters and DataReaders
+    WriterControl_Power();
+    ReaderMeas_NodePower();
+    ReaderVF_Device_Active();
+    ReaderStatus_Microgrid();
+
+    // Set up Control qos (including strength)
+    using namespace Energy::application;
+    SetDataWriterOwnershipStrength(TOPIC_CONTROL_POWER, strength);
+}
+
+/* StopSim
+ * The global boolean is used to stop all continuous threads and allow the application to shut down
+ * gracefully
+ */
+void PowerFlowSim::StopSim()
+{
+    runProcesses_.store(false);
+}
+
+/* ExecuteSim
+ * This is meant to be executed as it's own thread by main. This sets up all threads and executes
+ * the waitset
+ */
+void PowerFlowSim::ExecuteSim()
+{
+    using std::string;
+    /* Create Query Conditions */
+    using namespace dds::sub::status;
+    using QueryCondition = dds::sub::cond::QueryCondition;
+    using Condition = dds::core::cond::Condition;
+    // Create query parameters
+    std::vector<string> query_parameters = { "'" + OptimizerID() + "'" };
+    DataState commonDataState = DataState(
+        SampleState::not_read(),
+        ViewState::any(),
+        InstanceState::alive());
+
+    // Query Condition for Controlling the Microgrid. This is basic
+    // functionality for a grid connected device.
+    QueryCondition QueryConditionMicrogridStatus(
+        dds::sub::Query(this->ReaderStatus_Microgrid(), "Device MATCH %0", query_parameters),
+        commonDataState, [this](Condition condition) {
+            auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED;
+            auto condition_as_qc = dds::core::polymorphic_cast<QueryCondition>(condition);
+            auto samples = this->ReaderStatus_Microgrid().select().condition(condition_as_qc).read();
+            for (auto sample : samples)
+                if (sample.info().valid())
+                    CurrentStatus(sample.data().MicrogridStatus());
+        });
+
+    // Launch thread for continuous sim
+    std::thread simThread(&PowerFlowSim::SimThread, this);
+
+    // Set up the Waitset
+    dds::core::cond::WaitSet waitset;
+    waitset += QueryConditionMicrogridStatus;
+    
+    // Here we are handling our waitset and reactions to inputs
+    while (RunProcesses()) {
+        // Dispatch will call the handlers associated to the WaitSet conditions
+        // when they activate
+        waitset.dispatch(dds::core::Duration(1));  // Wait up to 4s each time
+    }
+
+    // Once the process is told to exit, rejoin the simThread (which should be done)
+    simThread.join();
+}
+
+/* SimThread
+ * This thread runs continuously to allow changes in the condition of the grid
+ * to change the way the powerflow behaves. It is set as virtual to allow for
+ * future expansion.
+ */
+void PowerFlowSim::SimThread()
+{
+    while (RunProcesses()) {
+        switch (currentStatus_) {
+        case Energy::Enums::MicrogridStatus::REQUEST_ISLAND:
+        case Energy::Enums::MicrogridStatus::CONNECTED:
+            this->BalanceConnected();
+            break;
+        case Energy::Enums::MicrogridStatus::REQUEST_RESYNC:
+        case Energy::Enums::MicrogridStatus::ISLANDED:
+            this->BalanceIsland();
+            break;
+        default:
+            break;
+        }
+
+        std::this_thread::sleep_for(SimThreadWait());
+    }
+}
 
 /* BalanceConnected
  * This sets the power levels that the Main Interconnect will report based on
  * all device measurements
  */
-void BalanceConnected(
-        dds::sub::DataReader<Energy::Ops::Meas_NodePower> ReaderMeas_NodePower,
-        dds::pub::DataWriter<Energy::Common::CNTL_Single_float32>
-                WriterControl_Power)
+void PowerFlowSim::BalanceConnected()
 {
     // Add up all of the power
-    float powerSum = 0.0;
-    for (auto meas : ReaderMeas_NodePower.read()) {
-        if (meas.info().valid() && meas.data().Device() != InterconnectID) {
+    float powerSum = 0.0f;
+    for (auto meas : ReaderMeas_NodePower().read())
+        if (meas.info().valid() && meas.data().Device() != InterconnectID())
             powerSum += meas.data().Value();
-        }
-    }
 
     // Take the result and set the interconnect power
-    auto sample = Energy::Common::CNTL_Single_float32(
-            InterconnectID,
-            DeviceID,
-            powerSum);
-    WriterControl_Power.write(sample);
+    auto sample = Energy::Common::CNTL_Single_float32(InterconnectID(), DeviceID(), powerSum);
+    WriterControl_Power().write(sample);
 }
 
 /* BalanceIsland
  * This takes all of the measurements (except for the VF Device) and sets the
  * necessary power output of the VF Device
  */
-void BalanceIsland(
-        dds::sub::DataReader<Energy::Ops::VF_Device_Active>
-                ReaderVF_Device_Active,
-        dds::sub::DataReader<Energy::Ops::Meas_NodePower> ReaderMeas_NodePower,
-        dds::pub::DataWriter<Energy::Common::CNTL_Single_float32>
-                WriterControl_Power)
+void PowerFlowSim::BalanceIsland()
 {
     // Get the VF Device ID
     std::string VFDeviceID = "";
-    for (auto dev : ReaderVF_Device_Active.read())
+    for (auto dev : ReaderVF_Device_Active().read())
         if (dev.info().valid())
             VFDeviceID = dev.data().Device();
 
     // Add up all the power
-    float powerSum = 0.0;
-    for (auto meas : ReaderMeas_NodePower.read()) {
+    float powerSum = 0.0f;
+    for (auto meas : ReaderMeas_NodePower().read())
         if (meas.info().valid() && meas.data().Device() != VFDeviceID)
             powerSum -= meas.data().Value();
-    }
 
     // Take the result and set the VF Device power
-    auto sample =
-            Energy::Common::CNTL_Single_float32(VFDeviceID, DeviceID, powerSum);
-    WriterControl_Power.write(sample);
+    auto sample = Energy::Common::CNTL_Single_float32(VFDeviceID, DeviceID(), powerSum);
+    WriterControl_Power().write(sample);
 }
 
-void publisher_main(int domain_id)
+const std::string& PowerFlowSim::DeviceID() const
 {
-    // Create the Domain Particimant QOS to set Entity Name
-    auto qos_default = dds::core::QosProvider::Default();
-    auto qos_participant = qos_default.participant_qos();
-    rti::core::policy::EntityName entityName("Sim-" + DeviceID);
-    qos_participant << entityName;
-    // Set Ownershipstrength for writers
-    auto qos_control =
-            qos_default.datawriter_qos("EnergyCommsLibrary::Control");
-    qos_control << dds::core::policy::OwnershipStrength(200000);
-
-    // Create a DomainParticipant with default Qos
-    dds::domain::DomainParticipant participant(domain_id, qos_participant);
-
-    // Create Topics -- and automatically register the types
-    Topic<Meas_NodePower> TopicMeas_NodePower(participant, "Meas_NodePower");
-    Topic<CNTL_Single_float32> TopicControl_Power(participant, "Control_Power");
-    Topic<VF_Device_Active> TopicVF_Device_Active(
-            participant,
-            "VF_Device_Active");
-    Topic<Status_Microgrid> TopicStatus_Microgrid(
-            participant,
-            "Status_Microgrid");
-
-    // Create Publisher
-    Publisher publisher(participant);
-
-    /* Create DataWriters with Qos */
-    // Used to control setpoints for ES, Generator, and PV
-    DataWriter<CNTL_Single_float32> WriterControl_Power(
-            publisher,
-            TopicControl_Power,
-            qos_control);
-
-    // Create Subscriber
-    dds::sub::Subscriber subscriber(participant);
-
-    /* Create DataReaders with Qos */
-    // Gets power devices are consuming or supplying
-    DataReader<Meas_NodePower> ReaderMeas_NodePower(
-            subscriber,
-            TopicMeas_NodePower,
-            QosProvider::Default().datareader_qos(
-                    "EnergyCommsLibrary::Measurement"));
-    // Gets the active VF Device based on ownership strength
-    DataReader<VF_Device_Active> ReaderVF_Device_Active(
-            subscriber,
-            TopicVF_Device_Active,
-            QosProvider::Default().datareader_qos(
-                    "EnergyCommsLibrary::Control"));
-    // Gets commands from the viz on Microgrid operations
-    DataReader<Status_Microgrid> ReaderStatus_Microgrid(
-            subscriber,
-            TopicStatus_Microgrid,
-            QosProvider::Default().datareader_qos(
-                    "EnergyCommsLibrary::Status"));
-
-    auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED;  // This is
-                                                                     // the
-                                                                     // reasonable
-                                                                     // default
-
-    const std::vector<std::string> query_parameters = { "'" + OptimizerID
-                                                        + "'" };
-    dds::sub::cond::QueryCondition query_condition(
-            dds::sub::Query(
-                    ReaderStatus_Microgrid,
-                    "Device MATCH %0",
-                    query_parameters),
-            dds::sub::status::DataState::any_data());
-
-    while (true) {
-        for (auto sample : ReaderStatus_Microgrid.select()
-                                   .condition(query_condition)
-                                   .read()) {
-            if (sample.info().valid())
-                currentStatus = sample.data().MicrogridStatus();
-        }
-
-        switch (currentStatus) {
-        case Energy::Enums::MicrogridStatus::REQUEST_ISLAND:
-        case Energy::Enums::MicrogridStatus::CONNECTED:
-            BalanceConnected(ReaderMeas_NodePower, WriterControl_Power);
-            break;
-        case Energy::Enums::MicrogridStatus::REQUEST_RESYNC:
-        case Energy::Enums::MicrogridStatus::ISLANDED:
-            BalanceIsland(
-                    ReaderVF_Device_Active,
-                    ReaderMeas_NodePower,
-                    WriterControl_Power);
-            break;
-        default:
-            break;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    return deviceID_;
 }
 
-int main(int argc, char* argv[])
+const std::string& PowerFlowSim::OptimizerID() const
 {
-    // To turn on additional logging, include <rti/config/Logger.hpp> and
-    // uncomment the following line:
-    // rti::config::Logger::instance().verbosity(rti::config::Verbosity::STATUS_ALL);
+    return optimizerID_;
+}
 
-    try {
-        publisher_main(0);
-    } catch (const std::exception& ex) {
-        // This will catch DDS exceptions
-        std::cerr << "Exception in publisher_main(): " << ex.what()
-                  << std::endl;
-        return -1;
-    }
+const std::string& PowerFlowSim::InterconnectID() const
+{
+    return interconnectID_;
+}
 
-    // RTI Connext provides a finalize_participant_factory() method
-    // if you want to release memory used by the participant factory singleton.
-    // Uncomment the following line to release the singleton:
-    //
-    // dds::domain::DomainParticipant::finalize_participant_factory();
+const std::chrono::milliseconds& PowerFlowSim::SimThreadWait() const
+{
+    return simThreadWait_;
+}
 
-    return 0;
+// Getter for reference to atomic instance of currentStatus_
+const Energy::Enums::MicrogridStatus PowerFlowSim::CurrentStatus() const
+{
+    return currentStatus_.load();
+}
+// Sets value of atomic global
+void PowerFlowSim::CurrentStatus(Energy::Enums::MicrogridStatus status)
+{
+    currentStatus_.store(status);
+}
+
+// Getter for process active status
+const bool PowerFlowSim::RunProcesses() const 
+{
+    return runProcesses_;
 }

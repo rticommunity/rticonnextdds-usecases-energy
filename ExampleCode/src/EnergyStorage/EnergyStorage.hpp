@@ -21,7 +21,6 @@ class EnergyStorage : public IED {
 public:
     EnergyStorage(const int domainId, const std::string& entityName, const INIReader& config);
 
-    //void ();
     void Execute() override;
     void ContinuousWriter();
     void ContinuousVFStrength() override;

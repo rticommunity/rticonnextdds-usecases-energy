@@ -52,6 +52,9 @@ void IED::StopIED()
 
 void IED::Execute()
 {
+    // Create thread vector to allow for cleanup
+    vector<std::thread> threadVector;
+
     /* Create Query Conditions */
     // Create query parameters
     using dds::sub::Query;
@@ -127,6 +130,8 @@ void IED::Execute()
             }
         });
         AttachCondition(ReadConditionVF_Device_Active);
+        // This thread only needs to be active if the IED is a VF Device
+        threadVector.push_back(std::thread(&IED::ContinuousVFStrength, this));
     }
     
     this->SetInfo();
@@ -136,9 +141,9 @@ void IED::Execute()
 
     // Launch thread for continuous node measurement writes, status updates, and
     // VF Device Writes
-    std::thread threadMeas(&IED::ContinuousWriter, this);
-    std::thread threadStatus(&IED::StatusMonitor, this);
-    std::thread threadVF(&IED::ContinuousVFStrength, this);
+    
+    threadVector.push_back(std::thread(&IED::ContinuousWriter, this));
+    threadVector.push_back(std::thread(&IED::StatusMonitor, this));
 
     // Here we are handling our waitset and reactions to inputs
     while (RunProcesses()) {
@@ -146,9 +151,13 @@ void IED::Execute()
         // when they activate
         waitset_.dispatch(dds::core::Duration(4));  // Wait up to 4s each time
     }
+
+    // After RunProcess returns false all other threads should also exit
+    for (auto&& th : threadVector)
+        th.join();
 }
 
-/* GetMeasurement
+/* SimMeasurement
  * In this example we have a single measurement. This could be the case when the
  * load is on a single phase or if the only thing that needs to be returned (or
  * is available) is the aggregate. This, along with the data model, would need
@@ -307,9 +316,9 @@ std::chrono::milliseconds IED::HardwareAccessDelay(const int minMs, const int ma
     return timespan;
 }
 
-const bool& IED::RunProcesses() const
+const bool IED::RunProcesses() const
 {
-    return runProcesses_;
+    return runProcesses_.load();
 }
 
 /* StatusMonitor
@@ -383,9 +392,15 @@ void IED::ContinuousWriter()
     Meas_NodePower sampleMeas_NodePower(DeviceID(), SimMeasurement(), NodeID());
     
     while (RunProcesses()) {
-        // Modify the measurement data to be written here
+        // Some sort of communication to the actual system would be here. In
+        // our case we're just going to pull from the simulated measurement
+        // variable
         sampleMeas_NodePower.Value(SimMeasurement());
-        
+
+        // We are adding a delay here to simulate the actual fetch of information
+        // from the system
+        IED::HardwareAccessDelay(99, 101);
+
         // Write the measurement data
         WriterMeas_NodePower().write(sampleMeas_NodePower);
     }
@@ -461,9 +476,12 @@ void IED::VFDeviceActivity(Energy::Common::Timestamp ts)
         std::this_thread::sleep_for(milliseconds(100));
     }
 
+    // Pull information from the global at once
+    auto switchTime = switchTime_.load();
+
     // This variable should have been updated when ActiveVf was made false
     targetTime = std::chrono::time_point<high_resolution_clock>(
-        seconds(switchTime_.Seconds()) + nanoseconds(switchTime_.Fraction()));
+        seconds(switchTime.Seconds()) + nanoseconds(switchTime.Fraction()));
 
     // Active VF has become false. Time to close everything out. There should
     // still be a time specified to make the switch.
