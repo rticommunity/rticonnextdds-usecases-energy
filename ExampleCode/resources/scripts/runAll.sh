@@ -13,7 +13,7 @@ executable_viz_name="Visualizer"
 bin_dir=${script_dir}/../../src/build
 
 printError(){
-	echo "***************************************************************"
+    echo "***************************************************************"
     echo $1 executable does not exist in:
     echo $2
     echo ""
@@ -27,7 +27,7 @@ execute() {
 if [ -f $2/$1 ]
 then
     cd $2
-    gnome-terminal --tab -- bash -c "./$1 $*"
+    gnome-terminal --tab -- bash -c "./$1; sleep 5"
 else
     printError $1 $2
 fi
