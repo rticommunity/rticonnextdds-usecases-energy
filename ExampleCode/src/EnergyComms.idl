@@ -20,7 +20,7 @@ module application {
     const string QOS_STATUS = "EnergyCommsLibrary::Status";
     const string QOS_CONTROL = "EnergyCommsLibrary::Control";
     const string QOS_VF_DEVICE = "EnergyCommsLibrary::VF";
-    const string QOS_VF_DEVICE_ACTIVE = "EnergyCommsLibrary::Control";
+    const string QOS_VF_DEVICE_ACTIVE = "EnergyCommsLibrary::Status";
 };
 module Common {
     typedef string<64> ID;
@@ -127,6 +127,23 @@ module Enums {
       DISCONNECT
     };
 
+    enum DeviceType {
+        @value(0)
+        INVALID,
+        @value(1)
+        IED,
+        @value(2)
+        LOAD,
+        @value(3)
+        SOLAR_PV,
+        @value(4)
+        ENERGY_STORAGE,
+        @value(5)
+        GENERATOR,
+        @value(6)
+        INTERCONNECT
+    };
+
   };
 
 module Ops {
@@ -134,14 +151,20 @@ module Ops {
       sequence<Energy::Common::NodePoint, 256> Nodes;
     };
 
-    struct Meas_NodePower : Energy::Common::MMXU_Single_float32 {
-      @key
-      Energy::Common::ID Node;
+    struct Meas_NodePower {
+        @key
+            Energy::Common::ID Device;
+        @key
+            Energy::Common::ID Node; 
+        float Value;
+        
     };
 
+    @extensibility(APPENDABLE)
     struct Info_Resource : Energy::Common::INFO {
       float MaxLoad;
       float MaxGeneration;
+      Energy::Enums::DeviceType DeviceType;
     };
 
     struct Info_Battery : Energy::Ops::Info_Resource {

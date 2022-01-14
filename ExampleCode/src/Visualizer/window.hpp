@@ -12,56 +12,58 @@
  */
 
 #include <gtkmm.h>
-#include <vector>
 #include <string>
-#include <dds/dds.hpp>
+#include <mutex>
+#include <condition_variable>
 
-#include "../generated/EnergyComms.hpp"
+#include "Visualizer.hpp"
+#include "SafeQueue.hpp"
 
-using namespace dds::domain;
-using namespace dds::topic;
-using namespace dds::pub;
-
-using namespace Energy::Ops;
-using namespace Energy::Common;
-
-class MyWindow : public Gtk::Window {
+class MyWindow : public Gtk::Window, public Visualizer {
     Glib::RefPtr<Gtk::Application>& app_;
     Glib::RefPtr<Gtk::Builder>& builder_;
     Glib::RefPtr<Gio::SimpleActionGroup> actionGroup_;
-    Gtk::Button *button_main_control, *button_sim_set_irradiance,
-            *button_sim_set_soc, *button_sim_set_load,
-            *button_sim_set_curtailment, *button_sim_trip;
-    Gtk::Entry *entry_sim_set_irradiance, *entry_sim_set_soc,
-            *entry_sim_set_load, *entry_sim_set_curtailment;
+    Gtk::Button* button_main_control, * button_sim_set_irradiance,
+        * button_sim_set_soc, * button_sim_set_load,
+        * button_sim_set_curtailment, * button_sim_trip;
+    Gtk::Entry* entry_sim_set_irradiance, * entry_sim_set_soc,
+        * entry_sim_set_load, * entry_sim_set_curtailment;
     Glib::RefPtr<Gtk::TextBuffer> textbuffer_pv_max_power, textbuffer_pv_meas,
-            textbuffer_pv_status, textbuffer_gen_max_power, textbuffer_gen_meas,
-            textbuffer_gen_status, textbuffer_load_max_power,
-            textbuffer_load_meas, textbuffer_load_status,
-            textbuffer_es_max_power, textbuffer_es_meas, textbuffer_es_status,
-            textbuffer_es_capacity, textbuffer_es_soc, textbuffer_main_status,
-            textbuffer_main_power;
+        textbuffer_pv_status, textbuffer_gen_max_power, textbuffer_gen_meas,
+        textbuffer_gen_status, textbuffer_load_max_power,
+        textbuffer_load_meas, textbuffer_load_status,
+        textbuffer_es_max_power, textbuffer_es_meas, textbuffer_es_status,
+        textbuffer_es_capacity, textbuffer_es_soc, textbuffer_main_status,
+        textbuffer_main_power;
 
     void buildUI();
-    void initDds();
-    static void DdsThread(MyWindow*);
 
 private:
-    DomainParticipant* participant;
+    void InitDDS();
 
-    Topic<Status_Microgrid>* TopicControl_Microgrid;
-    Topic<Control_Device>* TopicControl_Device;
-    Topic<CNTL_Single_float32>* TopicControl_Irradiance;
-    Topic<CNTL_Single_float32>* TopicControl_SOC;
-    Topic<CNTL_Single_float32>* TopicControl_Power;
+    // Elements for processing DDS data to update UI
+    void ThreadMeas_NodePower();
+    SafeQueue::SafeQueue<Energy::Ops::Meas_NodePower> queue_Meas_NodePower_;
+    void ThreadMeas_SOC();
+    SafeQueue::SafeQueue<Energy::Common::MMXU_Single_float32> queue_Meas_SOC_;
+    void ThreadInfo_Resource();
+    SafeQueue::SafeQueue<Energy::Ops::Info_Resource> queue_Info_Resource_;
+    void ThreadInfo_Battery();
+    SafeQueue::SafeQueue<Energy::Ops::Info_Battery> queue_Info_Battery_;
+    void ThreadInfo_Generator();
+    SafeQueue::SafeQueue<Energy::Ops::Info_Generator> queue_Info_Generator_;
+    void ThreadStatus_Device();
+    SafeQueue::SafeQueue<Energy::Ops::Status_Device> queue_Status_Device_;
+    void ThreadStatus_Microgrid();
+    SafeQueue::SafeQueue<Energy::Ops::Status_Microgrid> queue_Status_Microgrid_;
 
-    Publisher* publisher;
-
-    DataWriter<Status_Microgrid>* WriterControl_Microgrid;
-    DataWriter<Control_Device>* WriterControl_Device;
-    DataWriter<CNTL_Single_float32>* WriterControl_Irradiance;
-    DataWriter<CNTL_Single_float32>* WriterControl_SOC;
-    DataWriter<CNTL_Single_float32>* WriterControl_Power;
+    Glib::Dispatcher dispatcher_Meas_NodePower_;
+    Glib::Dispatcher dispatcher_Meas_SOC_;
+    Glib::Dispatcher dispatcher_Info_Resource_;
+    Glib::Dispatcher dispatcher_Info_Battery_;
+    Glib::Dispatcher dispatcher_Info_Generator_;
+    Glib::Dispatcher dispatcher_Status_Device_;
+    Glib::Dispatcher dispatcher_Status_Microgrid_;
 
 protected:
     // signal handlers
@@ -72,10 +74,28 @@ protected:
     void button_sim_set_curtailment_clicked();
     void button_sim_trip_clicked();
 
+    // Overrides of Callbacks from Visualizer class
+    void Callback_ReaderInfo_Resource() override;
+    void Callback_ReaderInfo_Battery() override;
+    void Callback_ReaderInfo_Generator() override;
+    void Callback_ReaderMeas_NodePower() override;
+    void Callback_ReaderMeas_SOC() override;
+    void Callback_ReaderStatus_Device() override;
+    void Callback_ReaderStatus_Microgrid() override;
+
+    // Scheduling of buffer updates from subthreads to main thread
+    struct DispatchData {
+        GtkTextBuffer* buffer;
+        char* output_str;
+    };
+    static gboolean display_textbuffer(DispatchData* data) {
+        gtk_text_buffer_set_text(data->buffer, data->output_str, strlen(data->output_str));
+        g_free(data);
+        return G_SOURCE_REMOVE;
+    }
+
 public:
     MyWindow(
-            BaseObjectType*,
-            Glib::RefPtr<Gtk::Builder>&,
-            Glib::RefPtr<Gtk::Application>&);
+        BaseObjectType*, Glib::RefPtr<Gtk::Builder>&, Glib::RefPtr<Gtk::Application>&);
     ~MyWindow();
 };

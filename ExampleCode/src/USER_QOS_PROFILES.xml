@@ -130,6 +130,17 @@ XML" chapter in the RTI Connext DDS Core Libraries User's Manual.
       </qos_profile>
 
       <qos_profile name="Measurement" base_name="BuiltinQosLib::Generic.BestEffort">
+        <datawriter_qos>
+          <history>
+            <depth>1</depth>
+          </history>
+        </datawriter_qos>
+
+        <datareader_qos>
+          <history>
+            <depth>1</depth>
+          </history>
+        </datareader_qos>
       </qos_profile>
 
       <qos_profile name="Info" base_name="BuiltinQosLib::Generic.KeepLastReliable.TransientLocal">

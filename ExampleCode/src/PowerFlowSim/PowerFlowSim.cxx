@@ -163,7 +163,7 @@ void PowerFlowSim::BalanceConnected()
     // Add up all of the power
     float powerSum = 0.0f;
     for (auto meas : ReaderMeas_NodePower().read())
-        if (meas.info().valid() && meas.data().Device() != InterconnectID())
+        if (meas.info().valid() && meas.data().Device() != InterconnectID() && meas.data().Device() != "")
             powerSum += meas.data().Value();
 
     // Take the result and set the interconnect power
@@ -186,7 +186,7 @@ void PowerFlowSim::BalanceIsland()
     // Add up all the power
     float powerSum = 0.0f;
     for (auto meas : ReaderMeas_NodePower().read())
-        if (meas.info().valid() && meas.data().Device() != VFDeviceID)
+        if (meas.info().valid() && meas.data().Device() != VFDeviceID && meas.data().Device() != "")
             powerSum -= meas.data().Value();
 
     // Take the result and set the VF Device power

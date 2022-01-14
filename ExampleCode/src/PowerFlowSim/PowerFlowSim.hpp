@@ -14,6 +14,8 @@
 #ifndef POWER_FLOW_SIM_H
 #define POWER_FLOW_SIM_H
 
+#include <atomic>
+
 #include "../common/ConnextEnergy.hpp"
 #include "../generated/EnergyComms.hpp"
 #include "../../../submodules/inih/INIReader.h"

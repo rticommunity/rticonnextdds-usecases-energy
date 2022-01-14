@@ -36,7 +36,7 @@ PV system to a microgrid.
 #include "MainInterconnect.hpp"
 
 MainInterconnect::MainInterconnect(const int domainId, const std::string& entityName, const INIReader& config)
-    : IED(domainId, entityName, config)
+    : IED(domainId, entityName, Energy::Enums::DeviceType::INTERCONNECT, config)
 {
     NodeIDGrid(config.Get("MainInterconnect", "NodeIDGrid", "000"));
 }
@@ -74,7 +74,7 @@ void MainInterconnect::ContinuousWriter()
 {
     using namespace Energy::Ops;
 
-    Meas_NodePower sampleMeas_NodePower(DeviceID(), SimMeasurement(), NodeIDGrid());
+    Meas_NodePower sampleMeas_NodePower(DeviceID(), NodeIDGrid(), SimMeasurement());
 
     while (RunProcesses()) {
         // Some sort of communication to the actual system would be here. In

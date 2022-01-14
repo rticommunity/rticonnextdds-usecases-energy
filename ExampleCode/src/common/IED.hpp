@@ -14,12 +14,18 @@
 #ifndef IED_H
 #define IED_H
 
+#include <atomic>
+#include <mutex>
+
 #include "../common/ConnextEnergy.hpp"
 #include "../../../submodules/inih/INIReader.h"
 
 class IED : public ConnextEnergy {
 public:
-    IED(const int domainId, const std::string& entityName, const INIReader& config);
+    IED(const int domainId, 
+        const std::string& entityName, 
+        const Energy::Enums::DeviceType type, 
+        const INIReader& config);
 
     void StopIED();
     virtual void Execute();
@@ -33,6 +39,7 @@ public:
 protected:
     // Getters for private members
     const string& DeviceID() const;
+    const Energy::Enums::DeviceType DeviceType() const;
     const bool VfDevice() const;
     const string& NodeID() const;
     const float& MaxLoad() const;
@@ -57,29 +64,33 @@ protected:
     void AttachCondition(T condition) { waitset_.attach_condition(condition); }
 
 private:
+    // Dynamic private members (potentially shared between threads)
     std::atomic<bool> runProcesses_;
-    std::atomic<Energy::Common::Timestamp> switchTime_;
-    dds::core::cond::WaitSet waitset_;
+    std::atomic<float> simMeasurement_;
+    Energy::Common::Timestamp switchTime_;
+    std::mutex switchTime_mutex_;
+    std::atomic<Energy::Enums::ConnectionStatus> connectionStatus_;
+    std::atomic<Energy::Enums::OperationStatus> operationStatus_;
 
+    // Static private members (set once during initial config)
     string deviceID_;
-    float simMeasurement_;
     bool vfDevice_;
     bool activeVF_;
     string nodeID_;
     float maxLoad_;
     float maxGeneration_;
-    Energy::Enums::ConnectionStatus connectionStatus_;
-    Energy::Enums::OperationStatus operationStatus_;
+    Energy::Enums::DeviceType deviceType_;
     chrono::seconds maxTimeToWait_;
+    dds::core::cond::WaitSet waitset_;
 
     // Setters for constant private memebers
     void DeviceID(const string& id);
+    void DeviceType(const Energy::Enums::DeviceType type);
     void VfDevice(bool isVfDevice);
     void NodeID(const string& id);
     void MaxLoad(const float& kW);
     void MaxGeneration(const float& kW);
     void MaxTimeToWait(const int seconds);
 };
-
 
 #endif

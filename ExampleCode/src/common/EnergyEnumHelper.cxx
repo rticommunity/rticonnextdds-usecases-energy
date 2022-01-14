@@ -1,3 +1,4 @@
+#include "EnergyEnumHelper.hpp"
 /*
  * (c) 2021 Copyright, Real-Time Innovations, Inc. (RTI) All rights reserved.
  *
@@ -11,21 +12,25 @@
  * inability to use the software.
  */
 
-/* Load.cxx
+#include "EnergyEnumHelper.hpp"
 
-A simulated Load Device
+using namespace Energy::Enums;
 
-This file can be used as a starting point for any application interfacing a
-load (smart or dumb) to a microgrid.
-*/
+namespace Energy {
+    namespace utils {
+        const static std::string EnumName(ConnectionStatus status)
+        
 
-#include "Load.hpp"
+        const static std::string EnumName(MicrogridStatus status)
+        
 
-/* Load
-* Load devices are generic IEDs. The big thing is that they only Load
-*/
-Load::Load(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, Energy::Enums::DeviceType::LOAD, config)
-{
-    
+        const static std::string EnumName(OperationStatus status)
+        
+
+        const static std::string EnumName(DeviceControl command)
+
+        const static std::string EnumName(DeviceType type)
+
+        const static std::string PrettyName(MicrogridStatus status)
+    }
 }

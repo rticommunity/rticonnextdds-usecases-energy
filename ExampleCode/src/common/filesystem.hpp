@@ -59,15 +59,13 @@
 // We priously determined that we need the exprimental version
 #   if INCLUDE_STD_FILESYSTEM_EXPERIMENTAL
 // Include it
-#       include <experimental/filesystem>
+#include <experimental/filesystem>
 // Add alias
 namespace filesystem = std::experimental::filesystem;
 
-
 // We have a decent compiler and can use the normal version
 #   else
-// Include it
-#       include <filesystem>
+#include <filesystem>
 // Add alias
 namespace filesystem = std::filesystem;
 #   endif

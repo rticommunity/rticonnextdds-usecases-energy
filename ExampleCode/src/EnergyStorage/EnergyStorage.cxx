@@ -32,7 +32,7 @@ inheritance.
 * Storage systems from generic IEDs
 */
 EnergyStorage::EnergyStorage(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, config)
+    IED(domainId, entityName, Energy::Enums::DeviceType::ENERGY_STORAGE, config)
 {
     //Pull Configuration
     simSOC_ = config.GetFloat("ES", "SimSOC", 50.0);
@@ -235,10 +235,13 @@ void EnergyStorage::SetInfo()
         NodeID(),
         MaxLoad(),
         MaxGeneration(),
+        Energy::Enums::DeviceType::ENERGY_STORAGE,
         Capacity());
 
     // Write Info. the Info QoS will keep this information available to late
     // joiners
     WriterInfo_Battery().write(sampleInfo_Battery);
+
+    ::IED::SetInfo();
 }
 

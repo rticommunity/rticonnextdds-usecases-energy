@@ -38,7 +38,7 @@ void PrintHelp()
 int main(int argc, char* argv[])
 {
     int domainId = 0;
-    std::string configFile = "EnergyStorage.ini";
+    std::string configFile = "MainInterconnect.ini";
 
     for (int i = 0; i < argc; i++) {
         // Look for a Domain ID tag

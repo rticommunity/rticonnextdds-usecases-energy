@@ -11,44 +11,20 @@
  * inability to use the software.
  */
 
-/* Controller.cxx
+ /* Controller.cxx
 
-A simulated Microgrid Controller and Optimizer
+ A simulated Microgrid Controller and Optimizer
 
-(1) Compile this file and the other devices and applications
+ This file can be used as a starting point for any application handling the
+ operation of a microgrid.
+ */
 
-(2) Start the devices and applications
-
-(3) Start the visualization
-
-This file can be used as a starting point for any application interfacing a
-PV system to a microgrid.
-*/
-
-#include <iostream>
 #include <chrono>
 #include <thread>
-#include <random>
-#include <condition_variable>
-#include <fstream>
 
 #include "Controller.hpp"
 
 const std::chrono::duration<float> MinIslandDelay = std::chrono::seconds(5);
-const std::chrono::duration<float> MaxTimeToWait = std::chrono::seconds(300);
-
-using namespace Energy::Ops;
-using namespace Energy::Common;
-using namespace Energy::Enums;
-
-using namespace dds::core;
-using namespace dds::topic;
-using namespace dds::pub;
-using namespace dds::sub;
-
-using namespace std;
-using namespace std::chrono;
-using std::ref;
 
 /* Controller
  * This is the contstructor for the controller. This sets up communication and gets the class ready
@@ -91,7 +67,10 @@ void Controller::StopController()
  */
 void Controller::ExecuteController()
 {
+    using namespace Energy::Enums;
+
     /* Create Query Conditions */
+    using dds::sub::Query;
     using namespace dds::sub::status;
     using QueryCondition = dds::sub::cond::QueryCondition;
     using Condition = dds::core::cond::Condition;
@@ -105,7 +84,7 @@ void Controller::ExecuteController()
     // Query Condition for Controlling the Microgrid. This is basic
     // functionality for a grid connected device.
     QueryCondition QueryConditionControl_Microgrid(
-        dds::sub::Query::Query(this->ReaderControl_Microgrid(), "Device MATCH %0", query_parameters),
+        Query(this->ReaderControl_Microgrid(), "Device MATCH %0", query_parameters),
         commonDataState, [this](Condition condition) {
             auto condition_as_qc = dds::core::polymorphic_cast<QueryCondition>(condition);
             auto samples = this->ReaderControl_Microgrid().select()
@@ -123,7 +102,7 @@ void Controller::ExecuteController()
     // Query Condition for watching if the Interconnect trips
     query_parameters = { "'" + interconnectID_ + "'" };
     QueryCondition QueryConditionInterconnectStatus(
-        dds::sub::Query::Query(this->ReaderStatus_Device(), "Device MATCH %0", query_parameters),
+        Query(this->ReaderStatus_Device(), "Device MATCH %0", query_parameters),
         commonDataState, [this](Condition condition) {
             auto condition_as_qc = dds::core::polymorphic_cast<QueryCondition>(condition);
             auto samples = this->ReaderStatus_Device().select().condition(condition_as_qc).read();
@@ -177,13 +156,18 @@ void Controller::ExecuteController()
  */
 void Controller::IslandOperation(bool Immediate)
 {
+    using namespace Energy::Ops;
+    using namespace Energy::Enums;
+    using namespace Energy::Common;
+    using namespace std::chrono;
+
     // Create the Samples for Device Control and VF Active device
     auto sampleControlDevice = Control_Device(
-            interconnectID_,
-            optimizerID_,
-            DeviceControl::DISCONNECT);
+        interconnectID_,
+        optimizerID_,
+        DeviceControl::DISCONNECT);
     auto sampleVF_Device_Active =
-            VF_Device_Active(optimizerID_, "", Timestamp());
+        VF_Device_Active(optimizerID_, "", Timestamp());
 
     // Get the current strongest VF Device
     std::string VFDeviceID = "";
@@ -195,14 +179,15 @@ void Controller::IslandOperation(bool Immediate)
     duration<float> IslandDelay;
     if (Immediate) {
         IslandDelay = seconds(0);
-    } else {
+    }
+    else {
         // Get the additional delay needed if the device is a generator else use
         // the MinIslandDelay
         IslandDelay = MinIslandDelay;
         for (auto sample : this->ReaderInfo_Generator().read())
             if (sample.info().valid() && sample.data().Device() == VFDeviceID)
                 IslandDelay =
-                        seconds(sample.data().RampUpTime()) + MinIslandDelay;
+                seconds(sample.data().RampUpTime()) + MinIslandDelay;
     }
 
     // Set the time to perform the island operation
@@ -238,8 +223,11 @@ void Controller::IslandOperation(bool Immediate)
  */
 void Controller::IslandMicrogrid()
 {
+    using namespace Energy::Ops;
+    using namespace Energy::Enums;
+
     auto sampleStatus_Microgrid =
-            Status_Microgrid(optimizerID_, MicrogridStatus::REQUEST_ISLAND);
+        Status_Microgrid(optimizerID_, MicrogridStatus::REQUEST_ISLAND);
     this->WriterStatus_Microgrid().write(sampleStatus_Microgrid);
 
     auto ThreadIsland = std::thread(&Controller::IslandOperation, this, false);
@@ -264,8 +252,8 @@ void Controller::IslandMicrogrid()
  */
 void Controller::UnintentionalIsland()
 {
-    auto sampleStatus_Microgrid =
-            Status_Microgrid(optimizerID_, MicrogridStatus::ISLANDED);
+   auto sampleStatus_Microgrid =
+        Energy::Ops::Status_Microgrid(optimizerID_, Energy::Enums::MicrogridStatus::ISLANDED);
     this->WriterStatus_Microgrid().write(sampleStatus_Microgrid);
 
     auto ThreadIsland = std::thread(&Controller::IslandOperation, this, true);
@@ -287,17 +275,20 @@ void Controller::UnintentionalIsland()
  */
 void Controller::Resynchronize()
 {
+    using namespace Energy::Ops;
+    using namespace Energy::Enums;
+
     bool waiting = true;  // variable that allows the while loop to exit
 
     auto sampleStatus_Microgrid =
-            Status_Microgrid(optimizerID_, MicrogridStatus::REQUEST_RESYNC);
+        Status_Microgrid(optimizerID_, MicrogridStatus::REQUEST_RESYNC);
     this->WriterStatus_Microgrid().write(sampleStatus_Microgrid);
 
     // Create the Samples for Device Control and VF Active device
     auto sampleControlDevice =
-            Control_Device(interconnectID_, optimizerID_, DeviceControl::CONNECT);
+        Control_Device(interconnectID_, optimizerID_, DeviceControl::CONNECT);
     auto sampleVF_Device_Active =
-            VF_Device_Active(optimizerID_, "", Energy::Common::Timestamp(0, 0));
+        VF_Device_Active(optimizerID_, "", Energy::Common::Timestamp(0, 0));
 
     /* Create Query Condition */
     using namespace dds::core;
@@ -311,26 +302,26 @@ void Controller::Resynchronize()
     // Create query parameters
     std::vector<std::string> query_parameters = { "'" + interconnectID_ + "'" };
     DataState commonDataState = DataState(
-            SampleState::any(),
-            ViewState::any(),
-            InstanceState::alive());
+        SampleState::any(),
+        ViewState::any(),
+        InstanceState::alive());
     // Query Condition for Controlling the device. This is basic functionality
     // for a grid connected device.
     QueryCondition QueryConditionStatus_Device(
-            Query(this->ReaderStatus_Device(), "Device MATCH %0", query_parameters),
-            commonDataState,
-            [ref(this->ReaderStatus_Device()), &waiting, this](Condition condition) {
-                auto condition_as_qc =
-                        polymorphic_cast<QueryCondition>(condition);
-                auto samples = this->ReaderStatus_Device().select()
-                                       .condition(condition_as_qc)
-                                       .read();
-                for (auto sample : samples)
-                    if (sample.info().valid()
-                        && sample.data().ConnectionStatus()
-                                == ConnectionStatus::CONNECTED)
-                        waiting = false;
-            });
+        Query(this->ReaderStatus_Device(), "Device MATCH %0", query_parameters),
+        commonDataState,
+        [ref(this->ReaderStatus_Device()), &waiting, this](Condition condition) {
+        auto condition_as_qc =
+            polymorphic_cast<QueryCondition>(condition);
+        auto samples = this->ReaderStatus_Device().select()
+            .condition(condition_as_qc)
+            .read();
+        for (auto sample : samples)
+            if (sample.info().valid()
+                && sample.data().ConnectionStatus()
+                == ConnectionStatus::CONNECTED)
+                waiting = false;
+    });
 
     // Set up the Waitset
     dds::core::cond::WaitSet waitset;
@@ -360,17 +351,19 @@ void Controller::Resynchronize()
  * process the command to make sure that nothing weird happens, such as trying
  * to island when you are already islanded.
  */
-void Controller::ProcessVizCommand(MicrogridStatus command)
+void Controller::ProcessVizCommand(Energy::Enums::MicrogridStatus command)
 {
+    using namespace Energy::Enums;
+
     auto currentStatus = MicrogridStatus::CONNECTED;  // This is the reasonable default
 
     const std::vector<std::string> query_parameters = { "'" + optimizerID_ + "'" };
     dds::sub::cond::QueryCondition query_condition(
-            dds::sub::Query(
-                    this->ReaderStatus_Microgrid(),
-                    "Device MATCH %0",
-                    query_parameters),
-            dds::sub::status::DataState::any_data());
+        dds::sub::Query(
+            this->ReaderStatus_Microgrid(),
+            "Device MATCH %0",
+            query_parameters),
+        dds::sub::status::DataState::any_data());
 
     for (auto sample :
         this->ReaderStatus_Microgrid().select().condition(query_condition).read()) {
@@ -399,15 +392,15 @@ void Controller::ProcessVizCommand(MicrogridStatus command)
  */
 void Controller::CheckTrip()
 {
-    auto currentStatus = MicrogridStatus::CONNECTED;  // This is the reasonable default
+    auto currentStatus = Energy::Enums::MicrogridStatus::CONNECTED;  // This is the reasonable default
 
     const std::vector<std::string> query_parameters = { "'" + optimizerID_ + "'" };
     dds::sub::cond::QueryCondition query_condition(
-            dds::sub::Query(
-                this->ReaderStatus_Microgrid(),
-                "Device MATCH %0",
-                query_parameters),
-            dds::sub::status::DataState::any_data());
+        dds::sub::Query(
+            this->ReaderStatus_Microgrid(),
+            "Device MATCH %0",
+            query_parameters),
+        dds::sub::status::DataState::any_data());
 
     for (auto sample :
         this->ReaderStatus_Microgrid().select().condition(query_condition).read()) {
@@ -416,7 +409,7 @@ void Controller::CheckTrip()
     }
 
     switch (currentStatus) {
-    case MicrogridStatus::CONNECTED:
+    case Energy::Enums::MicrogridStatus::CONNECTED:
         std::thread(&Controller::UnintentionalIsland, this).detach();
         break;
     default:
@@ -439,13 +432,18 @@ void Controller::CheckTrip()
  */
 void Controller::Optimize()
 {
+    using namespace Energy::Common;
+    using namespace Energy::Ops;
+    using namespace Energy::Enums;
+    using namespace std::chrono;
+
     const std::vector<std::string> query_parameters = { "'" + optimizerID_ + "'" };
     dds::sub::cond::QueryCondition query_condition(
-            dds::sub::Query(
-                this->ReaderStatus_Microgrid(),
-                "Device MATCH %0",
-                query_parameters),
-            dds::sub::status::DataState::any_data());
+        dds::sub::Query(
+            this->ReaderStatus_Microgrid(),
+            "Device MATCH %0",
+            query_parameters),
+        dds::sub::status::DataState::any_data());
 
     std::string VFDevice = "";
     bool VFDeviceChanged = false;
@@ -506,7 +504,7 @@ void Controller::Optimize()
                         sampleVF_Device_Active.Device(VFDevice);
                         sampleVF_Device_Active.SwitchTime(
                             Energy::Common::Timestamp(
-                                duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()).count() + 
+                                duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()).count() +
                                 duration_cast<seconds>(MinIslandDelay).count(), 0)
                         );
                     }

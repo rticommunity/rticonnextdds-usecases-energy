@@ -14,8 +14,9 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
+#include <atomic>
+
 #include "../common/ConnextEnergy.hpp"
-#include "../generated/EnergyComms.hpp"
 #include "../../../submodules/inih/INIReader.h"
 
 class Controller : ConnextEnergy {

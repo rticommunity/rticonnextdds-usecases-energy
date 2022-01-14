@@ -11,393 +11,82 @@
  * inability to use the software.
  */
 
-#include "window.hpp"
 #include <iostream>
 #include <thread>
 #include <sstream>
 #include <iomanip>
-#include <cmath>
+//#include <cmath>
 #include <string>
-#include <map>
+//#include <map>
 #include <rti/core/ListenerBinder.hpp>
+
+#include "Window.hpp"
+//#include "DataWorkers.hpp"
+#include "../common/EnergyEnumHelper.hpp"
+#include "../../../submodules/inih/INIReader.h"
 
 using namespace std;
 
-using namespace dds::core;
-using namespace rti::core;
-using namespace dds::core::status;
-using namespace dds::domain;
-using namespace dds::sub;
-using namespace dds::pub;
-using namespace dds::topic;
-
 MyWindow::MyWindow(
-        BaseObjectType* cobject,
-        Glib::RefPtr<Gtk::Builder>& builder,
-        Glib::RefPtr<Gtk::Application>& app)
-        : Gtk::Window { cobject },
-          app_ { app },
-          builder_ { builder },
-          actionGroup_ { nullptr },
-          button_main_control { nullptr },
-          button_sim_set_irradiance { nullptr },
-          button_sim_set_soc { nullptr },
-          button_sim_set_load { nullptr },
-          button_sim_set_curtailment { nullptr },
-          button_sim_trip { nullptr },
-          entry_sim_set_irradiance { nullptr },
-          entry_sim_set_soc { nullptr },
-          entry_sim_set_load { nullptr },
-          entry_sim_set_curtailment { nullptr },
-          textbuffer_pv_max_power { nullptr },
-          textbuffer_pv_meas { nullptr },
-          textbuffer_pv_status { nullptr },
-          textbuffer_gen_max_power { nullptr },
-          textbuffer_gen_meas { nullptr },
-          textbuffer_gen_status { nullptr },
-          textbuffer_load_max_power { nullptr },
-          textbuffer_load_meas { nullptr },
-          textbuffer_load_status { nullptr },
-          textbuffer_es_max_power { nullptr },
-          textbuffer_es_meas { nullptr },
-          textbuffer_es_status { nullptr },
-          textbuffer_es_capacity { nullptr },
-          textbuffer_es_soc { nullptr },
-          textbuffer_main_status { nullptr },
-          textbuffer_main_power { nullptr }
+    BaseObjectType* cobject, Glib::RefPtr<Gtk::Builder>& builder, Glib::RefPtr<Gtk::Application>& app)
+    : Gtk::Window{ cobject },
+    app_{ app },
+    builder_{ builder },
+    actionGroup_{ nullptr },
+    button_main_control{ nullptr },
+    button_sim_set_irradiance{ nullptr },
+    button_sim_set_soc{ nullptr },
+    button_sim_set_load{ nullptr },
+    button_sim_set_curtailment{ nullptr },
+    button_sim_trip{ nullptr },
+    entry_sim_set_irradiance{ nullptr },
+    entry_sim_set_soc{ nullptr },
+    entry_sim_set_load{ nullptr },
+    entry_sim_set_curtailment{ nullptr },
+    textbuffer_pv_max_power{ nullptr },
+    textbuffer_pv_meas{ nullptr },
+    textbuffer_pv_status{ nullptr },
+    textbuffer_gen_max_power{ nullptr },
+    textbuffer_gen_meas{ nullptr },
+    textbuffer_gen_status{ nullptr },
+    textbuffer_load_max_power{ nullptr },
+    textbuffer_load_meas{ nullptr },
+    textbuffer_load_status{ nullptr },
+    textbuffer_es_max_power{ nullptr },
+    textbuffer_es_meas{ nullptr },
+    textbuffer_es_status{ nullptr },
+    textbuffer_es_capacity{ nullptr },
+    textbuffer_es_soc{ nullptr },
+    textbuffer_main_status{ nullptr },
+    textbuffer_main_power{ nullptr }
 {
     set_title("Microgrid Visualizer");  // Sets the window title.
     set_default_size(800, 600);  // Set default size, width and height, in
                                  // pixels.
     set_border_width(10);
+    std::thread(&MyWindow::InitDDS, this).detach();
     buildUI();
-    initDds();
-    thread(DdsThread, this).detach();  // Create DDS Thread
     add_events(Gdk::KEY_PRESS_MASK);
     show_all_children();
+    //InitDDS();
 }
 
 MyWindow::~MyWindow()
 {
+    StopViz();
 }
 
-void MyWindow::initDds()
+void MyWindow::InitDDS()
 {
-    // Create the Domain Participant QOS to set Entity Name
-    auto qos_default = dds::core::QosProvider::Default();
-    auto qos_participant = qos_default.participant_qos();
-    rti::core::policy::EntityName entityName("Visualizer");
-    qos_participant << entityName;
-    // Set Ownershipstrength for writers
-    auto qos_control =
-            qos_default.datawriter_qos("EnergyCommsLibrary::Control");
-    qos_control << dds::core::policy::OwnershipStrength(100000);
+    auto&& executeThread = std::thread(&Visualizer::ExecuteViz, this);
 
-    // create DDS participant
-    participant = new DomainParticipant(0, qos_participant);
-
-    TopicControl_Microgrid = new Topic<Energy::Ops::Status_Microgrid>(
-            *(participant),
-            "Control_Microgrid");
-    TopicControl_Device = new Topic<Energy::Ops::Control_Device>(
-            *(participant),
-            "Control_Device");
-    TopicControl_Irradiance = new Topic<Energy::Common::CNTL_Single_float32>(
-            *(participant),
-            "Control_Irradiance");
-    TopicControl_SOC = new Topic<Energy::Common::CNTL_Single_float32>(
-            *(participant),
-            "Control_SOC");
-    TopicControl_Power = new Topic<Energy::Common::CNTL_Single_float32>(
-            *(participant),
-            "Control_Power");
-
-    publisher = new Publisher(*(participant));
-
-    WriterControl_Microgrid = new DataWriter<Energy::Ops::Status_Microgrid>(
-            *(publisher),
-            *(TopicControl_Microgrid),
-            qos_control);
-    WriterControl_Device = new DataWriter<Energy::Ops::Control_Device>(
-            *(publisher),
-            *(TopicControl_Device),
-            qos_control);
-    WriterControl_Irradiance =
-            new DataWriter<Energy::Common::CNTL_Single_float32>(
-                    *(publisher),
-                    *(TopicControl_Irradiance),
-                    qos_control);
-    WriterControl_SOC = new DataWriter<Energy::Common::CNTL_Single_float32>(
-            *(publisher),
-            *(TopicControl_SOC),
-            qos_control);
-    WriterControl_Power = new DataWriter<Energy::Common::CNTL_Single_float32>(
-            *(publisher),
-            *(TopicControl_Power),
-            qos_control);
-}
-
-void MyWindow::DdsThread(MyWindow* main)
-{
-    auto qos_default = dds::core::QosProvider::Default();
-
-    // Create Topics -- and automatically register the types
-    Topic<Energy::Ops::Info_Battery> TopicInfo_Battery(
-            *(main->participant),
-            "Info_Battery");
-    Topic<Energy::Ops::Meas_NodePower> TopicMeas_NodePower(
-            *(main->participant),
-            "Meas_NodePower");
-    Topic<Energy::Common::MMXU_Single_float32> TopicMeas_SOC(
-            *(main->participant),
-            "Meas_SOC");
-    Topic<Energy::Ops::Info_Resource> TopicInfo_Resource(
-            *(main->participant),
-            "Info_Resource");
-    Topic<Energy::Ops::Info_Generator> TopicInfo_Generator(
-            *(main->participant),
-            "Info_Generator");
-    Topic<Energy::Ops::Status_Device> TopicStatus_Device(
-            *(main->participant),
-            "Status_Device");
-    Topic<Energy::Ops::Status_Microgrid> TopicStatus_Microgrid(
-            *(main->participant),
-            "Status_Microgrid");
-    /*Topic<Energy::Common::CNTL_Single_float32> TopicControl_Power(
-     *(main->participant), "Control_Power");*/
-
-    // Create Subscriber
-    Subscriber subscriber(*(main->participant));
-
-    // Get QOS for info, status, and measurement
-    auto qos_info = qos_default.datareader_qos("EnergyCommsLibrary::Info");
-    auto qos_meas =
-            qos_default.datareader_qos("EnergyCommsLibrary::Measurement");
-    auto qos_status = qos_default.datareader_qos("EnergyCommsLibrary::Status");
-
-    // Create DataReaders
-    DataReader<Energy::Ops::Info_Battery> ReaderInfo_Battery(
-            subscriber,
-            TopicInfo_Battery,
-            qos_info);
-    DataReader<Energy::Ops::Info_Generator> ReaderInfo_Generator(
-            subscriber,
-            TopicInfo_Generator,
-            qos_info);
-    DataReader<Energy::Ops::Info_Resource> ReaderInfo_Resource(
-            subscriber,
-            TopicInfo_Resource,
-            qos_info);
-    DataReader<Energy::Ops::Meas_NodePower> ReaderMeas_NodePower(
-            subscriber,
-            TopicMeas_NodePower,
-            qos_meas);
-    DataReader<Energy::Common::MMXU_Single_float32> ReaderMeas_SOC(
-            subscriber,
-            TopicMeas_SOC,
-            qos_meas);
-    DataReader<Energy::Ops::Status_Device> ReaderStatus_Device(
-            subscriber,
-            TopicStatus_Device,
-            qos_status);
-    DataReader<Energy::Ops::Status_Microgrid> ReaderStatus_Microgrid(
-            subscriber,
-            TopicStatus_Microgrid,
-            qos_status);
-
-    // This is used for all the Read Conditions
-    dds::sub::status::DataState commonDataState = dds::sub::status::DataState(
-            dds::sub::status::SampleState::not_read(),
-            dds::sub::status::ViewState::any(),
-            dds::sub::status::InstanceState::alive());
-
-    dds::sub::cond::ReadCondition ReadConditionInfo_Battery(
-            ReaderInfo_Battery,
-            commonDataState,
-            [&ReaderInfo_Battery, main]() {
-                for (auto sample : ReaderInfo_Battery.take()) {
-                    if (sample.info().valid()
-                        && sample.data().Device() == "SampleES") {
-                        ostringstream stream_power, stream_capacity;
-                        stream_capacity << fixed << setprecision(2);
-                        stream_power << fixed << setprecision(2);
-                        stream_power << sample.data().MaxGeneration();
-                        stream_capacity << sample.data().Capacity();
-                        main->textbuffer_es_max_power->set_text(
-                                stream_power.str() + " kW");
-                        main->textbuffer_es_capacity->set_text(
-                                stream_capacity.str() + " kWh");
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionInfo_Generator(
-            ReaderInfo_Generator,
-            commonDataState,
-            [&ReaderInfo_Generator, main]() {
-                for (auto sample : ReaderInfo_Generator.take()) {
-                    if (sample.info().valid()
-                        && sample.data().Device() == "SampleGen") {
-                        std::ostringstream stream_power;
-                        stream_power << fixed << setprecision(2);
-                        stream_power << sample.data().MaxGeneration();
-                        main->textbuffer_gen_max_power->set_text(
-                                stream_power.str() + " kW");
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionInfo_Resource(
-            ReaderInfo_Resource,
-            commonDataState,
-            [&ReaderInfo_Resource, main]() {
-                for (auto sample : ReaderInfo_Resource.take()) {
-                    if (sample.info().valid()) {
-                        std::ostringstream stream_power;
-                        stream_power << fixed << setprecision(2);
-                        if (sample.data().Device() == "SampleLoad") {
-                            stream_power << sample.data().MaxLoad();
-                            main->textbuffer_load_max_power->set_text(
-                                    stream_power.str() + " kW");
-                        } else if (sample.data().Device() == "SamplePV") {
-                            stream_power << sample.data().MaxGeneration();
-                            main->textbuffer_pv_max_power->set_text(
-                                    stream_power.str() + " kW");
-                        }
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionMeas_NodePower(
-            ReaderMeas_NodePower,
-            commonDataState,
-            [&ReaderMeas_NodePower, main]() {
-                for (auto sample : ReaderMeas_NodePower.take()) {
-                    if (sample.info().valid()) {
-                        std::ostringstream stream_power;
-                        stream_power << fixed << setprecision(2);
-                        stream_power << sample.data().Value();
-                        if (sample.data().Device() == "SampleLoad")
-                            main->textbuffer_load_meas->set_text(
-                                    stream_power.str() + " kW");
-                        else if (sample.data().Device() == "SamplePV")
-                            main->textbuffer_pv_meas->set_text(
-                                    stream_power.str() + " kW");
-                        else if (sample.data().Device() == "SampleGen")
-                            main->textbuffer_gen_meas->set_text(
-                                    stream_power.str() + " kW");
-                        else if (sample.data().Device() == "SampleES")
-                            main->textbuffer_es_meas->set_text(
-                                    stream_power.str() + " kW");
-                        else if (sample.data().Device() == "SampleInterconnect")
-                            main->textbuffer_main_power->set_text(
-                                    stream_power.str() + " kW");
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionMeas_SOC(
-            ReaderMeas_SOC,
-            commonDataState,
-            [&ReaderMeas_SOC, main]() {
-                for (auto sample : ReaderMeas_SOC.take()) {
-                    if (sample.info().valid()
-                        && sample.data().Device() == "SampleES") {
-                        std::ostringstream stream_power;
-                        stream_power << fixed << setprecision(4);
-                        stream_power << abs(sample.data().Value());
-                        main->textbuffer_es_soc->set_text(
-                                stream_power.str() + "%");
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionStatus_Device(
-            ReaderStatus_Device,
-            commonDataState,
-            [&ReaderStatus_Device, main]() {
-                // map for device status
-                using namespace Energy::Enums;
-                std::map<int, std::string> status_map = {
-                    { (int) OperationStatus::DISABLED_OFF, "DISABLED_OFF" },
-                    { (int) OperationStatus::DISABLED_ERROR, "DISABLED_ERROR" },
-                    { (int) OperationStatus::DISABLED_READY, "DISABLED_READY" },
-                    { (int) OperationStatus::ENABLED_STARTING,
-                      "ENABLED_STARTING" },
-                    { (int) OperationStatus::ENABLED_ON, "ENABLED_ON" },
-                    { (int) OperationStatus::ENABLED_VF_READY,
-                      "ENABLED_VF_READY" },
-                    { (int) OperationStatus::ENABLED_VF_ON, "ENABLED_VF_ON" }
-                };
-                for (auto sample : ReaderStatus_Device.take()) {
-                    if (sample.info().valid()) {
-                        std::ostringstream streamObj;
-                        streamObj << status_map[(int) sample.data()
-                                                        .OperationStatus()];
-                        if (sample.data().Device() == "SampleLoad")
-                            main->textbuffer_load_status->set_text(
-                                    streamObj.str());
-                        else if (sample.data().Device() == "SamplePV")
-                            main->textbuffer_pv_status->set_text(
-                                    streamObj.str());
-                        else if (sample.data().Device() == "SampleGen")
-                            main->textbuffer_gen_status->set_text(
-                                    streamObj.str());
-                        else if (sample.data().Device() == "SampleES")
-                            main->textbuffer_es_status->set_text(
-                                    streamObj.str());
-                    }
-                }
-            });
-
-    dds::sub::cond::ReadCondition ReadConditionStatus_Microgrid(
-            ReaderStatus_Microgrid,
-            commonDataState,
-            [&ReaderStatus_Microgrid, main]() {
-                // map for microgrid status
-                using namespace Energy::Enums;
-                std::map<int, std::string> status_map = {
-                    { (int) MicrogridStatus::CONNECTED, "On Grid" },
-                    { (int) MicrogridStatus::REQUEST_ISLAND,
-                      "Preparing to Island" },
-                    { (int) MicrogridStatus::ISLANDED, "Islanded" },
-                    { (int) MicrogridStatus::REQUEST_RESYNC,
-                      "Preparing to Resynchonize" }
-                };
-                for (auto sample : ReaderStatus_Microgrid.take()) {
-                    if (sample.info().valid()) {
-                        std::ostringstream streamObj;
-                        streamObj << status_map[(int) sample.data()
-                                                        .MicrogridStatus()];
-                        main->textbuffer_main_status->set_text(streamObj.str());
-                        if (sample.data().MicrogridStatus()
-                            == MicrogridStatus::CONNECTED)
-                            main->button_main_control->set_label(
-                                    Glib::ustring("Island"));
-                        else if (
-                                sample.data().MicrogridStatus()
-                                == MicrogridStatus::ISLANDED)
-                            main->button_main_control->set_label(
-                                    Glib::ustring("Resync"));
-                    }
-                }
-            });
-
-    dds::core::cond::WaitSet waitset;
-    waitset += ReadConditionInfo_Battery;
-    waitset += ReadConditionInfo_Generator;
-    waitset += ReadConditionInfo_Resource;
-    waitset += ReadConditionMeas_NodePower;
-    waitset += ReadConditionMeas_SOC;
-    waitset += ReadConditionStatus_Device;
-    waitset += ReadConditionStatus_Microgrid;
-
-    // Here we are handling our waitset and reactions to inputs
-    while (true) {
-        // Dispatch will call the handlers associated to the WaitSet conditions
-        // when they activate
-        waitset.dispatch(dds::core::Duration(4));  // Wait up to 4s each time
+    while (RunProcesses()) {
+        if (!executeThread.joinable())
+            std::cerr << "Thread " << executeThread.get_id() << " not joinable!\n";
+        std::this_thread::sleep_for(1s);
     }
+
+    executeThread.join();
 }
 
 void MyWindow::buildUI()
@@ -439,21 +128,15 @@ void MyWindow::buildUI()
 
     // Populate all pointers
     builder_->get_widget("button_main_control", button_main_control);
-    builder_->get_widget(
-            "button_sim_set_irradiance",
-            button_sim_set_irradiance);
+    builder_->get_widget("button_sim_set_irradiance", button_sim_set_irradiance);
     builder_->get_widget("button_sim_set_soc", button_sim_set_soc);
     builder_->get_widget("button_sim_set_load", button_sim_set_load);
-    builder_->get_widget(
-            "button_sim_set_curtailment",
-            button_sim_set_curtailment);
+    builder_->get_widget("button_sim_set_curtailment", button_sim_set_curtailment);
     builder_->get_widget("button_sim_trip", button_sim_trip);
     builder_->get_widget("entry_sim_set_irradiance", entry_sim_set_irradiance);
     builder_->get_widget("entry_sim_set_soc", entry_sim_set_soc);
     builder_->get_widget("entry_sim_set_load", entry_sim_set_load);
-    builder_->get_widget(
-            "entry_sim_set_curtailment",
-            entry_sim_set_curtailment);
+    builder_->get_widget("entry_sim_set_curtailment", entry_sim_set_curtailment);
 
     if (button_main_control == nullptr || button_sim_set_irradiance == nullptr
         || button_sim_set_soc == nullptr || button_sim_set_load == nullptr
@@ -467,11 +150,11 @@ void MyWindow::buildUI()
 
     // Create tool tips for entries
     entry_sim_set_irradiance->set_tooltip_text(
-            Glib::ustring("0-1000 in W/m^2"));
+        Glib::ustring("0-1000 in W/m^2"));
     entry_sim_set_soc->set_tooltip_text(Glib::ustring("0-100 as a percentage"));
     entry_sim_set_load->set_tooltip_text(Glib::ustring("The load in kW"));
     entry_sim_set_curtailment->set_tooltip_text(
-            Glib::ustring("A limit on the max generation in kW"));
+        Glib::ustring("A limit on the max generation in kW"));
     // Create tool tips for Set buttons
     auto set_button_text = Glib::ustring("Click to set value.");
     button_sim_set_load->set_tooltip_text(set_button_text);
@@ -480,82 +163,324 @@ void MyWindow::buildUI()
     button_sim_set_irradiance->set_tooltip_text(set_button_text);
 
     // set button listeners
-    button_main_control->signal_clicked().connect(
-            sigc::mem_fun(*this, &MyWindow::button_main_control_clicked));
-    button_sim_set_curtailment->signal_clicked().connect(sigc::mem_fun(
-            *this,
-            &MyWindow::button_sim_set_curtailment_clicked));
-    button_sim_set_irradiance->signal_clicked().connect(
-            sigc::mem_fun(*this, &MyWindow::button_sim_set_irradiance_clicked));
-    button_sim_set_load->signal_clicked().connect(
-            sigc::mem_fun(*this, &MyWindow::button_sim_set_load_clicked));
-    button_sim_set_soc->signal_clicked().connect(
-            sigc::mem_fun(*this, &MyWindow::button_sim_set_soc_clicked));
-    button_sim_trip->signal_clicked().connect(
-            sigc::mem_fun(*this, &MyWindow::button_sim_trip_clicked));
+    button_main_control->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_main_control_clicked));
+    button_sim_set_curtailment->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_sim_set_curtailment_clicked));
+    button_sim_set_irradiance->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_sim_set_irradiance_clicked));
+    button_sim_set_load->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_sim_set_load_clicked));
+    button_sim_set_soc->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_sim_set_soc_clicked));
+    button_sim_trip->signal_clicked().connect(sigc::mem_fun(*this, &MyWindow::button_sim_trip_clicked));
 
+    // Create handlers for dispatchers
+    dispatcher_Meas_NodePower_.connect(sigc::mem_fun(*this, &MyWindow::ThreadMeas_NodePower));
+    dispatcher_Meas_SOC_.connect(sigc::mem_fun(*this, &MyWindow::ThreadMeas_SOC));
+    dispatcher_Info_Resource_.connect(sigc::mem_fun(*this, &MyWindow::ThreadInfo_Resource));
+    dispatcher_Info_Battery_.connect(sigc::mem_fun(*this, &MyWindow::ThreadInfo_Battery));
+    dispatcher_Info_Generator_.connect(sigc::mem_fun(*this, &MyWindow::ThreadInfo_Generator));
+    dispatcher_Status_Device_.connect(sigc::mem_fun(*this, &MyWindow::ThreadStatus_Device));
+    dispatcher_Status_Microgrid_.connect(sigc::mem_fun(*this, &MyWindow::ThreadStatus_Microgrid));
+    
 }  // MyWindow::buildUI
 
 
 void MyWindow::button_main_control_clicked()
 {
     Energy::Ops::Status_Microgrid sample(
-            "SampleOpt",
-            Energy::Enums::MicrogridStatus::REQUEST_ISLAND);
+        OptimizerID(), Energy::Enums::MicrogridStatus::REQUEST_ISLAND);
     if (button_main_control->get_label() == Glib::ustring("Island"))
-        WriterControl_Microgrid->write(sample);
+        WriterControl_Microgrid().write(sample);
     else if (button_main_control->get_label() == Glib::ustring("Resync")) {
         sample.MicrogridStatus(Energy::Enums::MicrogridStatus::REQUEST_RESYNC);
-        WriterControl_Microgrid->write(sample);
+        WriterControl_Microgrid().write(sample);
     }
 }
 
 void MyWindow::button_sim_set_soc_clicked()
 {
     Energy::Common::CNTL_Single_float32 sample(
-            "SampleES",
-            "Visualizer",
-            stof(entry_sim_set_soc->get_buffer()->get_text().raw()));
-    WriterControl_SOC->write(sample);
+        EnergyStorageID(), VizID(), stof(entry_sim_set_soc->get_buffer()->get_text().raw()));
+    WriterControl_SOC().write(sample);
 }
 
 void MyWindow::button_sim_set_load_clicked()
 {
     Energy::Common::CNTL_Single_float32 sample(
-            "SampleLoad",
-            "Visualizer",
-            stof(entry_sim_set_load->get_buffer()->get_text().raw()));
-    WriterControl_Power->write(sample);
+        LoadID(), VizID(), stof(entry_sim_set_load->get_buffer()->get_text().raw()));
+    WriterControl_Power().write(sample);
 }
 
 void MyWindow::button_sim_set_irradiance_clicked()
 {
     Energy::Common::CNTL_Single_float32 sample(
-            "SamplePV",
-            "Visualizer",
-            stof(entry_sim_set_irradiance->get_buffer()->get_text().raw()));
-    WriterControl_Irradiance->write(sample);
+        SolarID(), VizID(), stof(entry_sim_set_irradiance->get_buffer()->get_text().raw()));
+    WriterControl_Irradiance().write(sample);
 }
 
 void MyWindow::button_sim_set_curtailment_clicked()
 {
     try {
         Energy::Common::CNTL_Single_float32 sample(
-                "SamplePV",
-                "Visualizer",
-                stof(entry_sim_set_curtailment->get_buffer()
-                             ->get_text()
-                             .raw()));
-        WriterControl_Power->write(sample);
-    } catch (...) {
+            SolarID(), VizID(), stof(entry_sim_set_curtailment->get_buffer()->get_text().raw()));
+        WriterControl_Power().write(sample);
+    }
+    catch (...) {
     }
 }
 
 void MyWindow::button_sim_trip_clicked()
 {
     Energy::Ops::Control_Device sample(
-            "SampleInterconnect",
-            "Visualizer",
-            Energy::Enums::DeviceControl::DISCONNECT);
-    WriterControl_Device->write(sample);
+        MainInterconnectID(), VizID(), Energy::Enums::DeviceControl::DISCONNECT);
+    WriterControl_Device().write(sample);
+}
+
+void MyWindow::Callback_ReaderInfo_Resource()
+{
+    for (auto sample : ReaderInfo_Resource().read()) 
+        if (sample.info().valid()) 
+            queue_Info_Resource_.push(sample.data());
+
+    this->dispatcher_Info_Resource_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderInfo_Battery()
+{
+    for (auto sample : this->ReaderInfo_Battery().read()) 
+        if (sample.info().valid() && sample.data().Device() == EnergyStorageID()) 
+            queue_Info_Battery_.push(sample.data());
+
+    this->dispatcher_Info_Battery_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderInfo_Generator()
+{
+    for (auto sample : ReaderInfo_Generator().read())
+        if (sample.info().valid() && sample.data().Device() == GeneratorID())
+            queue_Info_Generator_.push(sample.data());
+
+    this->dispatcher_Info_Generator_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderMeas_NodePower()
+{
+    for (auto sample : ReaderMeas_NodePower().read())
+        if (sample.info().valid())
+            queue_Meas_NodePower_.push(sample.data());
+
+    this->dispatcher_Meas_NodePower_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderMeas_SOC()
+{
+    for (auto sample : ReaderMeas_SOC().read()) 
+        if (sample.info().valid() && sample.data().Device() == EnergyStorageID()) 
+            queue_Meas_SOC_.push(sample.data());
+
+    this->dispatcher_Meas_SOC_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderStatus_Device()
+{
+    for (auto sample : ReaderStatus_Device().read()) 
+        if (sample.info().valid()) 
+            queue_Status_Device_.push(sample.data());
+
+    this->dispatcher_Status_Device_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::Callback_ReaderStatus_Microgrid()
+{
+    for (auto sample : ReaderStatus_Microgrid().read()) 
+        if (sample.info().valid()) 
+            queue_Status_Microgrid_.push(sample.data());
+
+    this->dispatcher_Status_Microgrid_.emit();
+    std::this_thread::sleep_for(100ms); // Keeps the UI thread from overloading
+}
+
+void MyWindow::ThreadMeas_NodePower()
+{
+    Energy::Ops::Meas_NodePower newVal;
+    //gdk_threads_add_idle
+
+    while (RunProcesses()) {
+        switch (queue_Meas_NodePower_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream stream_power;
+            stream_power << fixed << setprecision(2);
+            stream_power << newVal.Value();
+            if (newVal.Device() == LoadID())
+                this->textbuffer_load_meas->set_text(stream_power.str() + " kW");
+            else if (newVal.Device() == MainInterconnectID())
+                this->textbuffer_main_power->set_text(stream_power.str() + " kW");
+            else if (newVal.Device() == SolarID())
+                this->textbuffer_pv_meas->set_text(stream_power.str() + " kW");
+            else if (newVal.Device() == EnergyStorageID())
+                this->textbuffer_es_meas->set_text(stream_power.str() + " kW");
+            else if (newVal.Device() == GeneratorID())
+                this->textbuffer_gen_meas->set_text(stream_power.str() + " kW");
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadInfo_Resource()
+{
+    Energy::Ops::Info_Resource newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Info_Resource_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream stream_power;
+            stream_power << fixed << setprecision(2);
+            if (newVal.Device() == LoadID()) {
+                stream_power << newVal.MaxLoad();
+                this->textbuffer_load_max_power->set_text(stream_power.str() + " kW");
+            }
+            else if (newVal.Device() == SolarID()) {
+                stream_power << newVal.MaxGeneration();
+                this->textbuffer_pv_max_power->set_text(stream_power.str() + " kW");
+            }
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadInfo_Battery()
+{
+    Energy::Ops::Info_Battery newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Info_Battery_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            ostringstream stream_power, stream_capacity;
+            stream_capacity << fixed << setprecision(2);
+            stream_capacity << newVal.Capacity();
+            stream_power << fixed << setprecision(2);
+            stream_power << newVal.MaxGeneration();
+            this->textbuffer_es_max_power->set_text(stream_power.str() + " kW");
+            this->textbuffer_es_capacity->set_text(stream_capacity.str() + " kWh");
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadInfo_Generator()
+{
+    Energy::Ops::Info_Generator newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Info_Generator_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream stream_power;
+            stream_power << fixed << setprecision(2);
+            stream_power << newVal.MaxGeneration();
+            this->textbuffer_gen_max_power->set_text(stream_power.str() + " kW");
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadMeas_SOC()
+{
+    Energy::Common::MMXU_Single_float32 newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Meas_SOC_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream stream_power;
+            stream_power << fixed << setprecision(4);
+            stream_power << abs(newVal.Value());
+            this->textbuffer_es_soc->set_text(stream_power.str() + "%");
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadStatus_Device()
+{
+    // This function converts the enum to a string
+    using Energy::utils::EnumName;
+    
+    Energy::Ops::Status_Device newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Status_Device_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream streamObj;
+            streamObj << EnumName(newVal.OperationStatus());
+            if (newVal.Device() == LoadID())
+                this->textbuffer_load_status->set_text(streamObj.str());
+            else if (newVal.Device() == SolarID())
+                this->textbuffer_pv_status->set_text(streamObj.str());
+            else if (newVal.Device() == GeneratorID())
+                this->textbuffer_gen_status->set_text(streamObj.str());
+            else if (newVal.Device() == EnergyStorageID())
+                this->textbuffer_es_status->set_text(streamObj.str());
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
+}
+
+void MyWindow::ThreadStatus_Microgrid()
+{
+    // This function converts the enum to a pretty string
+    using Energy::utils::PrettyName;
+    using Energy::Enums::MicrogridStatus;
+
+    Energy::Ops::Status_Microgrid newVal;
+
+    while (RunProcesses()) {
+        switch (queue_Status_Microgrid_.pop(newVal, 1ms)) {
+        case SafeQueue::QueueResult::OK:
+        {
+            std::ostringstream streamObj;
+            streamObj << PrettyName(newVal.MicrogridStatus());
+            this->textbuffer_main_status->set_text(streamObj.str());
+            if (newVal.MicrogridStatus() == MicrogridStatus::CONNECTED)
+                this->button_main_control->set_label(Glib::ustring("Island"));
+            else if (newVal.MicrogridStatus() == MicrogridStatus::ISLANDED)
+                this->button_main_control->set_label(Glib::ustring("Resync"));
+        }
+        break;
+        case SafeQueue::QueueResult::TIMEOUT:
+        case SafeQueue::QueueResult::CLOSED:
+            return;
+        }
+    }
 }

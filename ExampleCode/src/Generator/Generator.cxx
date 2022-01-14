@@ -45,7 +45,7 @@ using namespace dds::sub;
 * systems from generic IEDs
 */
 Generator::Generator(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, config)
+    IED(domainId, entityName, Energy::Enums::DeviceType::GENERATOR, config)
 {
     //Pull Configuration
     RampUpTime(config.GetInteger("Generator", "RampUpTime", 10));
@@ -134,7 +134,7 @@ void Generator::ContinuousVFStrength()
     int32_t str = 0;
     dds::pub::qos::DataWriterQos QosVF_Device = WriterVF_Device().qos();
 
-    while (true) {
+    while (RunProcesses()) {
         if (ActiveVf())
             // This keeps the generator at a higher strength during VF mode
             str = (int32_t)(80 * MaxGeneration() * 100);
@@ -154,8 +154,7 @@ void Generator::ContinuousVFStrength()
 
 /* SetInfo
 * Information setting function specific to Genaerators rather than the generic
-* IED. This overrides the base function without any need to call the base 
-* function.
+* IED. This overrides the base function.
 */
 void Generator::SetInfo()
 {
@@ -167,6 +166,7 @@ void Generator::SetInfo()
         NodeID(),
         MaxLoad(),
         MaxGeneration(),
+        Energy::Enums::DeviceType::GENERATOR,
         EfficiencyCurve(),
         std::chrono::duration_cast<std::chrono::duration<uint32_t>>(
             RampUpTime())
@@ -175,6 +175,8 @@ void Generator::SetInfo()
     // Write Info. the Info QoS will keep this information available to late
     // joiners
     WriterInfo_Generator().write(sampleInfo_Generator);
+
+    ::IED::SetInfo();
 }
 
 const chrono::seconds& Generator::RampUpTime() const

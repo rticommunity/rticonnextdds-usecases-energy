@@ -31,7 +31,7 @@ PV system to a microgrid, either as a replacement or through inheritance.
 * generation is a function of irradiance rather than being relatively constant.
 */
 SolarPV::SolarPV(const int domainId, const std::string& entityName, const INIReader& config) :
-    IED(domainId, entityName, config)
+    IED(domainId, entityName, Energy::Enums::DeviceType::SOLAR_PV, config)
 {
     //Pull Configuration
     SimIrradiance(config.GetFloat("SolarPV", "SimIrradiance", 500.0));

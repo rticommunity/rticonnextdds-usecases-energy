@@ -15,10 +15,14 @@
 #include <thread>
 #include <random>
 
-IED::IED(const int domainId, const std::string& entityName, const INIReader& config) : 
+IED::IED(const int domainId, 
+    const std::string& entityName, 
+    const Energy::Enums::DeviceType type,
+    const INIReader& config) : 
     ConnextEnergy(domainId, entityName)
 {
     runProcesses_ = true;
+    DeviceType(type);
 
     // Default initialization of class members
     SimMeasurement(0.0);
@@ -62,7 +66,7 @@ void IED::Execute()
     using dds::sub::cond::QueryCondition;
     using dds::core::polymorphic_cast;
     std::vector<std::string> query_parameters = { "'" + DeviceID() + "'" };
-    auto commonDataState = dds::sub::status::DataState(
+    auto&& commonDataState = dds::sub::status::DataState(
         dds::sub::status::SampleState::not_read(),
         dds::sub::status::ViewState::any(),
         dds::sub::status::InstanceState::alive());
@@ -106,8 +110,8 @@ void IED::Execute()
     */
     if (VfDevice()) {
         ReadCondition ReadConditionVF_Device_Active(ReaderVF_Device_Active(), commonDataState, [this]() {
-            auto samples = ReaderVF_Device_Active().take();
-            for (auto sample : samples) {
+            auto&& samples = ReaderVF_Device_Active().take();
+            for (auto&& sample : samples) {
                 if (sample.info().valid()) {
                     /* The decision on a device becoming a VF Device must be
                     * defined within the system. Within this system, it is done
@@ -123,7 +127,9 @@ void IED::Execute()
                     * devices.
                     */
                     else {
+                        switchTime_mutex_.lock();
                         switchTime_ = sample.data().SwitchTime();
+                        switchTime_mutex_.unlock();
                         ActiveVf(false);
                     }
                 }
@@ -176,44 +182,6 @@ float IED::SimMeasurement()
         return 0.0;
 }
 
-// Returns the Device ID associated with the IED. This is determined in configuration and should be
-// static.
-const string& IED::DeviceID() const
-{
-    return deviceID_;
-}
-
-// Answers the question as to whether or not the device is capable of providing voltage and
-// frequency support in the event the microgrid islands.
-const bool IED::VfDevice() const
-{
-    return vfDevice_;
-}
-
-// The Node identifier of the electrical connection of the IED to the microgrid.
-const string& IED::NodeID() const
-{
-    return nodeID_;
-}
-
-// Maximum load that the IED can provide to the grid.
-const float& IED::MaxLoad() const
-{
-    return maxLoad_;
-}
-
-// Maximum power generation that the IED can provide to the grid.
-const float& IED::MaxGeneration() const
-{
-    return maxGeneration_;
-}
-
-// The maximum time the IED will wait to transition to VF support.
-const chrono::seconds& IED::MaxTimeToWait() const
-{
-    return maxTimeToWait_;
-}
-
 // Update of the current simulated measurement value
 void IED::SimMeasurement(const float& kW)
 {
@@ -224,83 +192,6 @@ void IED::SimMeasurement(const float& kW)
         simMeasurement_ = MaxLoad();
     else
         simMeasurement_ = kW;
-}
-
-// Whether or not the IED is actively supporting voltage and frequency on an islanded
-// microgrid.
-bool IED::ActiveVf() const
-{
-    return activeVF_;
-}
-
-// Changes the behavior of the IED when the grid islands or resynchronizes to the
-// grid.
-void IED::ActiveVf(bool isActiveVf)
-{
-    activeVF_ = isActiveVf;
-}
-
-// The current connection status of the IED to the microgrid
-Energy::Enums::ConnectionStatus IED::ConnectionStatus() const
-{
-    return connectionStatus_;
-}
-
-// Update the connection status of the IED to the microgrid
-void IED::ConnectionStatus(Energy::Enums::ConnectionStatus newStatus)
-{
-    connectionStatus_ = newStatus;
-}
-
-// Update the operation status of the IED
-void IED::OperationStatus(Energy::Enums::OperationStatus newStatus)
-{
-    operationStatus_ = newStatus;
-}
-
-// The current operation status of the IED
-Energy::Enums::OperationStatus IED::OperationStatus() const
-{
-    return operationStatus_;
-}
-
-// The Device ID associated with the IED.
-void IED::DeviceID(const string& id)
-{
-    deviceID_ = id;
-}
-
-// Answers the question as to whether or not the device is capable of providing voltage and
-// frequency support in the event the microgrid islands.
-void IED::VfDevice(bool isVfDevice)
-{
-    vfDevice_ = isVfDevice;
-}
-
-// The Node identifier of the electrical connection of the IED to the microgrid.
-void IED::NodeID(const string& id)
-{
-    nodeID_ = id;
-}
-
-// Maximum load that the IED can provide to the grid.
-void IED::MaxLoad(const float& kW)
-{
-    // Load must be negative
-    maxLoad_ = -abs(kW);
-}
-
-// Maximum power generation that the IED can provide to the grid.
-void IED::MaxGeneration(const float& kW)
-{
-    // Generation must be positive
-    maxGeneration_ = abs(kW);
-}
-
-// Sets the maximum time the IED will wait to transition to VF support.
-void IED::MaxTimeToWait(const int seconds)
-{
-    maxTimeToWait_ = chrono::seconds(seconds);
 }
 
 // Performs a short delay and returns how long the delay was
@@ -389,7 +280,7 @@ void IED::ContinuousWriter()
 {
     using namespace Energy::Ops;
 
-    Meas_NodePower sampleMeas_NodePower(DeviceID(), SimMeasurement(), NodeID());
+    Meas_NodePower sampleMeas_NodePower(DeviceID(), NodeID(), SimMeasurement());
     
     while (RunProcesses()) {
         // Some sort of communication to the actual system would be here. In
@@ -424,7 +315,7 @@ void IED::ContinuousVFStrength()
 
     VF_Device dev(DeviceID());
     int32_t str = 0;
-    dds::pub::qos::DataWriterQos QosVF_Device = WriterVF_Device().qos();
+    auto QosVF_Device = WriterVF_Device().qos();
 
     QosVF_Device << dds::core::policy::OwnershipStrength(str);
     std::cout << "Strength = " << str << "." << std::endl;
@@ -446,15 +337,13 @@ void IED::VFDeviceActivity(Energy::Common::Timestamp ts)
     using namespace std::chrono;
     using namespace Energy::Enums;
 
-    std::chrono::time_point<high_resolution_clock> targetTime(
-        seconds(ts.Seconds()) + nanoseconds(ts.Fraction()));
+    time_point<high_resolution_clock> targetTime(seconds(ts.Seconds()) + nanoseconds(ts.Fraction()));
 
     // Check to make sure that something isn't wrong and the scheduled time to
     // wait to transition is greater that the configured max time to wait. For
     // an actual application this would need some kind of status feedback for
     // safety.
-    if (duration_cast<duration<float>>(targetTime - high_resolution_clock::now())
-        > MaxTimeToWait()) {
+    if (duration_cast<duration<float>>(targetTime - high_resolution_clock::now()) > MaxTimeToWait()) {
         std::cerr << "Time to switch to VF greater than Max Allowed Time.\n";
         return;
     }
@@ -476,13 +365,16 @@ void IED::VFDeviceActivity(Energy::Common::Timestamp ts)
         std::this_thread::sleep_for(milliseconds(100));
     }
 
-    // Pull information from the global at once
-    auto switchTime = switchTime_.load();
+    // Grab a lock for the switchTime_ global
+    switchTime_mutex_.lock();
 
     // This variable should have been updated when ActiveVf was made false
     targetTime = std::chrono::time_point<high_resolution_clock>(
-        seconds(switchTime.Seconds()) + nanoseconds(switchTime.Fraction()));
+        seconds(switchTime_.Seconds()) + nanoseconds(switchTime_.Fraction()));
 
+    // We're done, unlock
+    switchTime_mutex_.unlock();
+    
     // Active VF has become false. Time to close everything out. There should
     // still be a time specified to make the switch.
     std::this_thread::sleep_until(targetTime);
@@ -495,24 +387,145 @@ void IED::VFDeviceActivity(Energy::Common::Timestamp ts)
 * All generic information for the IED is set here. This is different from 
 * status data in that it is intrinsic to the device and generally does not
 * change.
-* 
-* EnergyStorage and Generator Info will override this function without calling
-* the base function.
 */
 void IED::SetInfo()
 {
-    using namespace Energy::Ops;
-
     // Create Sample objects for datawriter(s)
-    Info_Resource sampleInfo_Resource(
+    Energy::Ops::Info_Resource sampleInfo_Resource(
         DeviceID(),
         NodeID(),
         MaxLoad(),
-        MaxGeneration());
+        MaxGeneration(),
+        DeviceType());
 
     // Write Info. the Info QoS will keep this information available to late
     // joiners
     WriterInfo_Resource().write(sampleInfo_Resource);
 }
 
+// Returns the Device ID associated with the IED. This is determined in configuration and should be
+// static.
+const string& IED::DeviceID() const
+{
+    return deviceID_;
+}
 
+// Answers the question as to whether or not the device is capable of providing voltage and
+// frequency support in the event the microgrid islands.
+const bool IED::VfDevice() const
+{
+    return vfDevice_;
+}
+
+// The Node identifier of the electrical connection of the IED to the microgrid.
+const string& IED::NodeID() const
+{
+    return nodeID_;
+}
+
+// Maximum load that the IED can provide to the grid.
+const float& IED::MaxLoad() const
+{
+    return maxLoad_;
+}
+
+// Maximum power generation that the IED can provide to the grid.
+const float& IED::MaxGeneration() const
+{
+    return maxGeneration_;
+}
+
+// The maximum time the IED will wait to transition to VF support.
+const chrono::seconds& IED::MaxTimeToWait() const
+{
+    return maxTimeToWait_;
+}
+
+// Whether or not the IED is actively supporting voltage and frequency on an islanded
+// microgrid.
+bool IED::ActiveVf() const
+{
+    return activeVF_;
+}
+
+// Changes the behavior of the IED when the grid islands or resynchronizes to the
+// grid.
+void IED::ActiveVf(bool isActiveVf)
+{
+    activeVF_ = isActiveVf;
+}
+
+// The current connection status of the IED to the microgrid
+Energy::Enums::ConnectionStatus IED::ConnectionStatus() const
+{
+    return connectionStatus_;
+}
+
+// Update the connection status of the IED to the microgrid
+void IED::ConnectionStatus(Energy::Enums::ConnectionStatus newStatus)
+{
+    connectionStatus_ = newStatus;
+}
+
+// Update the operation status of the IED
+void IED::OperationStatus(Energy::Enums::OperationStatus newStatus)
+{
+    operationStatus_ = newStatus;
+}
+
+// The current operation status of the IED
+Energy::Enums::OperationStatus IED::OperationStatus() const
+{
+    return operationStatus_;
+}
+
+// The Device ID associated with the IED.
+void IED::DeviceID(const string& id)
+{
+    deviceID_ = id;
+}
+
+// Answers the question as to whether or not the device is capable of providing voltage and
+// frequency support in the event the microgrid islands.
+void IED::VfDevice(bool isVfDevice)
+{
+    vfDevice_ = isVfDevice;
+}
+
+// The Node identifier of the electrical connection of the IED to the microgrid.
+void IED::NodeID(const string& id)
+{
+    nodeID_ = id;
+}
+
+// Maximum load that the IED can provide to the grid.
+void IED::MaxLoad(const float& kW)
+{
+    // Load must be negative
+    maxLoad_ = -abs(kW);
+}
+
+// Maximum power generation that the IED can provide to the grid.
+void IED::MaxGeneration(const float& kW)
+{
+    // Generation must be positive
+    maxGeneration_ = abs(kW);
+}
+
+// Sets the maximum time the IED will wait to transition to VF support.
+void IED::MaxTimeToWait(const int seconds)
+{
+    maxTimeToWait_ = chrono::seconds(seconds);
+}
+
+// Gets the device type of the IED
+const Energy::Enums::DeviceType IED::DeviceType() const
+{
+    return deviceType_;
+}
+
+// Sets the device type of the IED. This needs to happen during initial configuration
+void IED::DeviceType(const Energy::Enums::DeviceType type)
+{
+    deviceType_ = type;
+}
