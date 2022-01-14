@@ -30,7 +30,9 @@ When running cmake, you may need to specify the Connext home directory. How to
 do this is specified in the error message, but here is the correct command for
 easy reference:
 
-```cmake .. -DCONNEXTDDS_DIR=$NDDSHOME```
+```sh
+cmake .. -DCONNEXTDDS_DIR=$NDDSHOME
+```
 
 This assumes you have followed all of the instructions for the installation of
 RTI Connext and set up your ```$NDDSHOME``` environment variable.
@@ -43,13 +45,16 @@ You may get the following error during compilation:
 This is due to this project using a submodule that was not properly pulled. To
 fix this problem, run the following command:
 
-```git submodule update --init```
+```sh
+git submodule update --init
+```
 
 For more information regarding this problem see [this StackExchange answer](https://stackoverflow.com/a/11358126).
 
 ## Running the Example
 
 Simply run the `runAll.sh` script located in the `resources/scripts` directory.
+
 ```sh
 ./runAll.sh
 ```
