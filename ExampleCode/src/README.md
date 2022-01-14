@@ -45,7 +45,7 @@ fix this problem, run the following command:
 
 ```git submodule update --init```
 
-For more information regarding this problem see [this StackExchange answer](https://stackoverflow.com/a/11358126)
+For more information regarding this problem see [this StackExchange answer](https://stackoverflow.com/a/11358126).
 
 ## Running the Example
 
