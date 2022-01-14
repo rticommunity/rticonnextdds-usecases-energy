@@ -12,122 +12,36 @@ executable_control_name="Controller"
 executable_viz_name="Visualizer"
 bin_dir=${script_dir}/../../src/build
 
-if [ -f $bin_dir/$executable_es_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_es_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
+printError(){
+	echo "***************************************************************"
+    echo $1 executable does not exist in:
+    echo $2
     echo ""
     echo Please, try to recompile the application using the command:
     echo " $ cmake --build ."
     echo while in the build directory.
     echo "***************************************************************"
-fi
+}
 
-if [ -f $bin_dir/$executable_load_name ]
+execute() {
+if [ -f $2/$1 ]
 then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_load_name $*"
+    cd $2
+    gnome-terminal --tab -- bash -c "./$1 $*"
 else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
+    printError $1 $2
 fi
+}
 
-if [ -f $bin_dir/$executable_gen_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_gen_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
+execute $executable_sim_name $bin_dir
+sleep 4 # Make sure PowerFlowSim is running before starting devices
 
-if [ -f $bin_dir/$executable_pv_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_pv_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
+execute $executable_es_name $bin_dir
+execute $executable_load_name $bin_dir
+execute $executable_gen_name $bin_dir
+execute $executable_pv_name $bin_dir
+execute $executable_main_name $bin_dir
+sleep 5 # Make sure all devices are running before starting controller
 
-if [ -f $bin_dir/$executable_main_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_main_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
-
-if [ -f $bin_dir/$executable_sim_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_sim_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
-
-if [ -f $bin_dir/$executable_control_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_control_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
-
-if [ -f $bin_dir/$executable_viz_name ]
-then
-    cd $bin_dir
-    gnome-terminal --tab -- bash -c "./$executable_viz_name $*"
-else
-    echo "***************************************************************"
-    echo $executable_name executable does not exist in:
-    echo $bin_dir
-    echo ""
-    echo Please, try to recompile the application using the command:
-    echo " $ cmake --build ."
-    echo while in the build directory.
-    echo "***************************************************************"
-fi
+execute $executable_control_name $bin_dir
+execute $executable_viz_name $bin_dir
